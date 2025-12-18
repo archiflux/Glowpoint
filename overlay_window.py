@@ -182,30 +182,21 @@ class OverlayWindow(QWidget):
         Args:
             painter: QPainter instance
         """
-        # Create radial gradient for spotlight
         radius = self.config.get("spotlight", "radius")
-        opacity = self.config.get("spotlight", "opacity")
 
+        # Draw bright glowing circle around cursor
         gradient = QRadialGradient(self.last_cursor_pos, radius)
-        gradient.setColorAt(0, QColor(255, 255, 255, 0))
-        gradient.setColorAt(0.7, QColor(255, 255, 255, 0))
-        gradient.setColorAt(1, QColor(0, 0, 0, int(255 * opacity)))
+        gradient.setColorAt(0, QColor(255, 255, 100, 180))  # Bright yellow center
+        gradient.setColorAt(0.3, QColor(255, 255, 150, 120))  # Medium glow
+        gradient.setColorAt(0.7, QColor(255, 255, 200, 60))  # Soft outer glow
+        gradient.setColorAt(1, QColor(255, 255, 255, 0))  # Transparent edge
 
-        # Fill entire screen with dark overlay
-        painter.fillRect(self.rect(), QColor(0, 0, 0, int(255 * opacity)))
-
-        # Cut out spotlight area using composition mode
-        painter.setCompositionMode(QPainter.CompositionMode_DestinationOut)
-        spotlight_gradient = QRadialGradient(self.last_cursor_pos, radius)
-        spotlight_gradient.setColorAt(0, QColor(255, 255, 255, int(255 * opacity)))
-        spotlight_gradient.setColorAt(1, QColor(255, 255, 255, 0))
-        painter.setBrush(spotlight_gradient)
+        painter.setBrush(gradient)
         painter.setPen(Qt.NoPen)
         painter.drawEllipse(self.last_cursor_pos, radius, radius)
-        painter.setCompositionMode(QPainter.CompositionMode_SourceOver)
 
-        # Draw bright ring around spotlight
-        pen = QPen(QColor(255, 255, 255, 100), 2)
+        # Draw bright ring for emphasis
+        pen = QPen(QColor(255, 200, 0, 200), 3)
         painter.setPen(pen)
         painter.setBrush(Qt.NoBrush)
-        painter.drawEllipse(self.last_cursor_pos, radius - 10, radius - 10)
+        painter.drawEllipse(self.last_cursor_pos, radius // 2, radius // 2)
