@@ -20,6 +20,7 @@ class ConfigManager:
         "spotlight": {
             "enabled": True,
             "radius": 80,
+            "ring_radius": 40,
             "opacity": 0.7,
             "color": "#FFFF64"
         },

@@ -54,15 +54,12 @@ class SpotCursorApp:
 
         self.tray_icon = QSystemTrayIcon(icon, self.app)
 
-        # Create tooltip with all hotkeys
-        tooltip = "SpotCursor - Keyboard Shortcuts:\n"
-        tooltip += f"• Spotlight: {self.config.get_shortcut('toggle_spotlight')}\n"
-        tooltip += f"• Draw Blue: {self.config.get_shortcut('draw_blue')}\n"
-        tooltip += f"• Draw Red: {self.config.get_shortcut('draw_red')}\n"
-        tooltip += f"• Draw Yellow: {self.config.get_shortcut('draw_yellow')}\n"
-        tooltip += f"• Draw Green: {self.config.get_shortcut('draw_green')}\n"
-        tooltip += f"• Clear: {self.config.get_shortcut('clear_screen')}\n"
-        tooltip += f"• Quit: {self.config.get_shortcut('quit')}"
+        # Create tooltip with all hotkeys (compact format to avoid cutoff)
+        s = self.config.get_shortcut  # shorthand
+        tooltip = f"""SpotCursor Shortcuts:
+Spotlight: {s('toggle_spotlight')}
+Draw: B/R/Y/G (Ctrl+Shift+B/R/Y/G)
+Clear: {s('clear_screen')} | Quit: {s('quit')}"""
         self.tray_icon.setToolTip(tooltip)
 
         # Create menu
@@ -171,7 +168,7 @@ class SpotCursorApp:
 
     def _show_settings(self):
         """Show settings dialog."""
-        dialog = SettingsDialog(self.config)
+        dialog = SettingsDialog(self.config, self.overlay)
         dialog.settings_changed.connect(self._on_settings_changed)
         dialog.exec_()
 

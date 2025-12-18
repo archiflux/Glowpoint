@@ -198,7 +198,8 @@ class OverlayWindow(QWidget):
         painter.drawEllipse(self.last_cursor_pos, radius, radius)
 
         # Draw bright ring for emphasis
+        ring_radius = self.config.get("spotlight", "ring_radius")
         pen = QPen(QColor(base_color.red(), base_color.green(), base_color.blue(), 200), 3)
         painter.setPen(pen)
         painter.setBrush(Qt.NoBrush)
-        painter.drawEllipse(self.last_cursor_pos, radius // 2, radius // 2)
+        painter.drawEllipse(self.last_cursor_pos, ring_radius, ring_radius)

@@ -17,13 +17,18 @@ class ShortcutRecorder(QLineEdit):
         self.recording = False
         self.keys = []
 
+    def mousePressEvent(self, event):
+        """Start recording when clicked."""
+        super().mousePressEvent(event)
+        if not self.recording:
+            self.recording = True
+            self.keys = []
+            self.setText("")
+            self.setStyleSheet("background-color: #FFF9C4;")
+
     def focusInEvent(self, event):
-        """Start recording when focused."""
+        """Handle focus - don't auto-start recording."""
         super().focusInEvent(event)
-        self.recording = True
-        self.keys = []
-        self.setText("")
-        self.setStyleSheet("background-color: #FFF9C4;")
 
     def focusOutEvent(self, event):
         """Stop recording when focus is lost."""
@@ -77,15 +82,17 @@ class SettingsDialog(QDialog):
 
     settings_changed = pyqtSignal()
 
-    def __init__(self, config_manager, parent=None):
+    def __init__(self, config_manager, overlay=None, parent=None):
         """Initialize settings dialog.
 
         Args:
             config_manager: Configuration manager instance
+            overlay: Overlay window for live preview
             parent: Parent widget
         """
         super().__init__(parent)
         self.config = config_manager
+        self.overlay = overlay
         self.shortcut_inputs = {}
         self.spotlight_color = "#FFFF64"  # Default yellow
         self._setup_ui()
@@ -134,10 +141,21 @@ class SettingsDialog(QDialog):
         radius_layout = QHBoxLayout()
         radius_layout.addWidget(self.radius_slider)
         radius_layout.addWidget(self.radius_label)
-        self.radius_slider.valueChanged.connect(
-            lambda v: self.radius_label.setText(f"{v}px")
-        )
+        self.radius_slider.valueChanged.connect(self._on_radius_changed)
         spotlight_layout.addRow("Spotlight Radius:", radius_layout)
+
+        # Ring radius slider
+        self.ring_radius_slider = QSlider(Qt.Horizontal)
+        self.ring_radius_slider.setMinimum(10)
+        self.ring_radius_slider.setMaximum(100)
+        self.ring_radius_slider.setTickPosition(QSlider.TicksBelow)
+        self.ring_radius_slider.setTickInterval(10)
+        self.ring_radius_label = QLabel()
+        ring_radius_layout = QHBoxLayout()
+        ring_radius_layout.addWidget(self.ring_radius_slider)
+        ring_radius_layout.addWidget(self.ring_radius_label)
+        self.ring_radius_slider.valueChanged.connect(self._on_ring_radius_changed)
+        spotlight_layout.addRow("Ring Radius:", ring_radius_layout)
 
         # Spotlight opacity slider
         self.opacity_slider = QSlider(Qt.Horizontal)
@@ -215,6 +233,9 @@ class SettingsDialog(QDialog):
         radius = self.config.get("spotlight", "radius")
         self.radius_slider.setValue(radius)
 
+        ring_radius = self.config.get("spotlight", "ring_radius")
+        self.ring_radius_slider.setValue(ring_radius)
+
         opacity = int(self.config.get("spotlight", "opacity") * 100)
         self.opacity_slider.setValue(opacity)
 
@@ -235,6 +256,7 @@ class SettingsDialog(QDialog):
 
         # Save spotlight settings
         self.config.set(self.radius_slider.value(), "spotlight", "radius")
+        self.config.set(self.ring_radius_slider.value(), "spotlight", "ring_radius")
         self.config.set(self.opacity_slider.value() / 100.0, "spotlight", "opacity")
         self.config.set(self.spotlight_color, "spotlight", "color")
 
@@ -254,9 +276,30 @@ class SettingsDialog(QDialog):
         if color.isValid():
             self.spotlight_color = color.name()
             self._update_color_preview()
+            self._update_live_preview()
 
     def _update_color_preview(self):
         """Update the color preview box."""
         self.spotlight_color_preview.setStyleSheet(
             f"background-color: {self.spotlight_color}; border: 1px solid #ccc;"
         )
+
+    def _on_radius_changed(self, value):
+        """Handle spotlight radius changes."""
+        self.radius_label.setText(f"{value}px")
+        self._update_live_preview()
+
+    def _on_ring_radius_changed(self, value):
+        """Handle ring radius changes."""
+        self.ring_radius_label.setText(f"{value}px")
+        self._update_live_preview()
+
+    def _update_live_preview(self):
+        """Update the overlay with current settings for live preview."""
+        if self.overlay:
+            # Temporarily update config values for preview
+            self.config.set(self.radius_slider.value(), "spotlight", "radius")
+            self.config.set(self.ring_radius_slider.value(), "spotlight", "ring_radius")
+            self.config.set(self.spotlight_color, "spotlight", "color")
+            # Force overlay to repaint
+            self.overlay.update()

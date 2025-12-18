@@ -93,9 +93,12 @@ Right-click the SpotCursor icon in your system tray to:
 ### Adjusting Spotlight Settings
 
 In the Settings dialog, you can adjust:
-- **Spotlight Radius**: Size of the spotlight circle (50-200 pixels)
+- **Spotlight Radius**: Size of the spotlight glow (50-200 pixels)
+- **Ring Radius**: Size of the bright ring around cursor (10-100 pixels)
 - **Spotlight Color**: Choose any color for your spotlight using the color picker
 - **Dimming Opacity**: (Legacy setting, spotlight now uses bright glow instead of dimming)
+
+**Live Preview**: All spotlight settings update in real-time as you adjust them - move your cursor to see the changes immediately!
 
 ### Adjusting Drawing Settings
 
@@ -120,6 +123,7 @@ Example `config.json`:
   "spotlight": {
     "enabled": true,
     "radius": 80,
+    "ring_radius": 40,
     "opacity": 0.7,
     "color": "#FFFF64"
   },
