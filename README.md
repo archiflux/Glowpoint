@@ -52,8 +52,11 @@ A lightweight cursor highlighter and screen drawing tool perfect for presentatio
 - **Ctrl+Shift+B**: Draw in blue
 - **Ctrl+Shift+R**: Draw in red
 - **Ctrl+Shift+Y**: Draw in yellow
+- **Ctrl+Shift+G**: Draw in green
 - **Ctrl+Shift+C**: Clear all drawings
 - **Ctrl+Shift+Q**: Quit application
+
+**Tip**: Hover over the system tray icon to see all current shortcuts!
 
 ### How to Draw
 
@@ -91,7 +94,8 @@ Right-click the SpotCursor icon in your system tray to:
 
 In the Settings dialog, you can adjust:
 - **Spotlight Radius**: Size of the spotlight circle (50-200 pixels)
-- **Dimming Opacity**: How dark the surrounding area appears (0-100%)
+- **Spotlight Color**: Choose any color for your spotlight using the color picker
+- **Dimming Opacity**: (Legacy setting, spotlight now uses bright glow instead of dimming)
 
 ### Adjusting Drawing Settings
 
@@ -109,20 +113,23 @@ Example `config.json`:
     "draw_blue": "<ctrl>+<shift>+b",
     "draw_red": "<ctrl>+<shift>+r",
     "draw_yellow": "<ctrl>+<shift>+y",
+    "draw_green": "<ctrl>+<shift>+g",
     "clear_screen": "<ctrl>+<shift>+c",
     "quit": "<ctrl>+<shift>+q"
   },
   "spotlight": {
     "enabled": true,
     "radius": 80,
-    "opacity": 0.7
+    "opacity": 0.7,
+    "color": "#FFFF64"
   },
   "drawing": {
     "line_width": 4,
     "colors": {
       "blue": "#2196F3",
       "red": "#F44336",
-      "yellow": "#FFEB3B"
+      "yellow": "#FFEB3B",
+      "green": "#4CAF50"
     }
   }
 }

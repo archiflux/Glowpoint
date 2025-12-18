@@ -43,6 +43,7 @@ class SpotCursorApp:
         self.hotkey_manager.draw_blue.connect(lambda: self._toggle_drawing("blue"))
         self.hotkey_manager.draw_red.connect(lambda: self._toggle_drawing("red"))
         self.hotkey_manager.draw_yellow.connect(lambda: self._toggle_drawing("yellow"))
+        self.hotkey_manager.draw_green.connect(lambda: self._toggle_drawing("green"))
         self.hotkey_manager.clear_screen.connect(self._clear_screen)
         self.hotkey_manager.quit_app.connect(self._quit_application)
 
@@ -52,7 +53,17 @@ class SpotCursorApp:
         icon = self._create_icon()
 
         self.tray_icon = QSystemTrayIcon(icon, self.app)
-        self.tray_icon.setToolTip("SpotCursor")
+
+        # Create tooltip with all hotkeys
+        tooltip = "SpotCursor - Keyboard Shortcuts:\n"
+        tooltip += f"• Spotlight: {self.config.get_shortcut('toggle_spotlight')}\n"
+        tooltip += f"• Draw Blue: {self.config.get_shortcut('draw_blue')}\n"
+        tooltip += f"• Draw Red: {self.config.get_shortcut('draw_red')}\n"
+        tooltip += f"• Draw Yellow: {self.config.get_shortcut('draw_yellow')}\n"
+        tooltip += f"• Draw Green: {self.config.get_shortcut('draw_green')}\n"
+        tooltip += f"• Clear: {self.config.get_shortcut('clear_screen')}\n"
+        tooltip += f"• Quit: {self.config.get_shortcut('quit')}"
+        self.tray_icon.setToolTip(tooltip)
 
         # Create menu
         menu = QMenu()
@@ -94,9 +105,10 @@ class SpotCursorApp:
         # Show notification on startup
         self.tray_icon.showMessage(
             "SpotCursor Started",
-            f"Use {self.config.get_shortcut('toggle_spotlight')} to toggle spotlight\n"
-            f"Use {self.config.get_shortcut('draw_blue')}, {self.config.get_shortcut('draw_red')}, "
-            f"{self.config.get_shortcut('draw_yellow')} to draw",
+            f"Hover over icon to see all shortcuts\n"
+            f"Spotlight: {self.config.get_shortcut('toggle_spotlight')}\n"
+            f"Draw: {self.config.get_shortcut('draw_blue')}, {self.config.get_shortcut('draw_red')}, "
+            f"{self.config.get_shortcut('draw_yellow')}, {self.config.get_shortcut('draw_green')}",
             QSystemTrayIcon.Information,
             3000
         )
@@ -193,10 +205,11 @@ class SpotCursorApp:
             f"<li>Draw Blue: {self.config.get_shortcut('draw_blue')}</li>"
             f"<li>Draw Red: {self.config.get_shortcut('draw_red')}</li>"
             f"<li>Draw Yellow: {self.config.get_shortcut('draw_yellow')}</li>"
+            f"<li>Draw Green: {self.config.get_shortcut('draw_green')}</li>"
             f"<li>Clear Screen: {self.config.get_shortcut('clear_screen')}</li>"
             f"<li>Quit: {self.config.get_shortcut('quit')}</li>"
             "</ul>"
-            "<p>Right-click the system tray icon to access settings.</p>"
+            "<p>Right-click the system tray icon to access settings or hover for quick shortcut reference.</p>"
         )
 
     def _quit_application(self):

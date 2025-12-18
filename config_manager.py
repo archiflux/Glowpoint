@@ -13,20 +13,23 @@ class ConfigManager:
             "draw_blue": "<ctrl>+<shift>+b",
             "draw_red": "<ctrl>+<shift>+r",
             "draw_yellow": "<ctrl>+<shift>+y",
+            "draw_green": "<ctrl>+<shift>+g",
             "clear_screen": "<ctrl>+<shift>+c",
             "quit": "<ctrl>+<shift>+q"
         },
         "spotlight": {
             "enabled": True,
             "radius": 80,
-            "opacity": 0.7
+            "opacity": 0.7,
+            "color": "#FFFF64"
         },
         "drawing": {
             "line_width": 4,
             "colors": {
                 "blue": "#2196F3",
                 "red": "#F44336",
-                "yellow": "#FFEB3B"
+                "yellow": "#FFEB3B",
+                "green": "#4CAF50"
             }
         }
     }

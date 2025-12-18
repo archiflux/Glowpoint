@@ -1,8 +1,9 @@
 """Settings dialog for configuring shortcuts and preferences."""
 from PyQt5.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel,
                              QPushButton, QLineEdit, QGroupBox, QFormLayout,
-                             QSlider, QCheckBox, QMessageBox)
+                             QSlider, QCheckBox, QMessageBox, QColorDialog)
 from PyQt5.QtCore import Qt, pyqtSignal
+from PyQt5.QtGui import QColor
 
 
 class ShortcutRecorder(QLineEdit):
@@ -86,6 +87,7 @@ class SettingsDialog(QDialog):
         super().__init__(parent)
         self.config = config_manager
         self.shortcut_inputs = {}
+        self.spotlight_color = "#FFFF64"  # Default yellow
         self._setup_ui()
         self._load_settings()
 
@@ -105,6 +107,7 @@ class SettingsDialog(QDialog):
             "draw_blue": "Draw Blue",
             "draw_red": "Draw Red",
             "draw_yellow": "Draw Yellow",
+            "draw_green": "Draw Green",
             "clear_screen": "Clear Screen",
             "quit": "Quit Application"
         }
@@ -150,6 +153,18 @@ class SettingsDialog(QDialog):
             lambda v: self.opacity_label.setText(f"{v}%")
         )
         spotlight_layout.addRow("Dimming Opacity:", opacity_layout)
+
+        # Spotlight color picker
+        self.spotlight_color_button = QPushButton("Choose Color")
+        self.spotlight_color_button.clicked.connect(self._choose_spotlight_color)
+        self.spotlight_color_preview = QLabel()
+        self.spotlight_color_preview.setFixedSize(30, 30)
+        self.spotlight_color_preview.setStyleSheet("border: 1px solid #ccc;")
+        color_layout = QHBoxLayout()
+        color_layout.addWidget(self.spotlight_color_button)
+        color_layout.addWidget(self.spotlight_color_preview)
+        color_layout.addStretch()
+        spotlight_layout.addRow("Spotlight Color:", color_layout)
 
         spotlight_group.setLayout(spotlight_layout)
         layout.addWidget(spotlight_group)
@@ -203,6 +218,9 @@ class SettingsDialog(QDialog):
         opacity = int(self.config.get("spotlight", "opacity") * 100)
         self.opacity_slider.setValue(opacity)
 
+        self.spotlight_color = self.config.get("spotlight", "color")
+        self._update_color_preview()
+
         # Load drawing settings
         line_width = self.config.get("drawing", "line_width")
         self.line_width_slider.setValue(line_width)
@@ -218,6 +236,7 @@ class SettingsDialog(QDialog):
         # Save spotlight settings
         self.config.set(self.radius_slider.value(), "spotlight", "radius")
         self.config.set(self.opacity_slider.value() / 100.0, "spotlight", "opacity")
+        self.config.set(self.spotlight_color, "spotlight", "color")
 
         # Save drawing settings
         self.config.set(self.line_width_slider.value(), "drawing", "line_width")
@@ -227,3 +246,17 @@ class SettingsDialog(QDialog):
                                "Settings have been saved successfully!\n\n"
                                "Note: Restart the application for shortcut changes to take effect.")
         self.accept()
+
+    def _choose_spotlight_color(self):
+        """Open color picker for spotlight color."""
+        current_color = QColor(self.spotlight_color)
+        color = QColorDialog.getColor(current_color, self, "Choose Spotlight Color")
+        if color.isValid():
+            self.spotlight_color = color.name()
+            self._update_color_preview()
+
+    def _update_color_preview(self):
+        """Update the color preview box."""
+        self.spotlight_color_preview.setStyleSheet(
+            f"background-color: {self.spotlight_color}; border: 1px solid #ccc;"
+        )

@@ -12,6 +12,7 @@ class HotkeyManager(QObject):
     draw_blue = pyqtSignal()
     draw_red = pyqtSignal()
     draw_yellow = pyqtSignal()
+    draw_green = pyqtSignal()
     clear_screen = pyqtSignal()
     quit_app = pyqtSignal()
 
@@ -48,6 +49,7 @@ class HotkeyManager(QObject):
             "draw_blue": self.draw_blue.emit,
             "draw_red": self.draw_red.emit,
             "draw_yellow": self.draw_yellow.emit,
+            "draw_green": self.draw_green.emit,
             "clear_screen": self.clear_screen.emit,
             "quit": self.quit_app.emit,
         }
