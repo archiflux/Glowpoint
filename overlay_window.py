@@ -196,11 +196,10 @@ class OverlayWindow(QWidget):
 
         # Cut out spotlight area using composition mode
         painter.setCompositionMode(QPainter.CompositionMode_DestinationOut)
-        painter.setBrush(QRadialGradient(
-            self.last_cursor_pos, radius,
-            colorAt0=QColor(255, 255, 255, int(255 * opacity)),
-            colorAt1=QColor(255, 255, 255, 0)
-        ))
+        spotlight_gradient = QRadialGradient(self.last_cursor_pos, radius)
+        spotlight_gradient.setColorAt(0, QColor(255, 255, 255, int(255 * opacity)))
+        spotlight_gradient.setColorAt(1, QColor(255, 255, 255, 0))
+        painter.setBrush(spotlight_gradient)
         painter.setPen(Qt.NoPen)
         painter.drawEllipse(self.last_cursor_pos, radius, radius)
         painter.setCompositionMode(QPainter.CompositionMode_SourceOver)
