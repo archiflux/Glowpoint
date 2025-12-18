@@ -184,13 +184,14 @@ class OverlayWindow(QWidget):
         """
         radius = self.config.get("spotlight", "radius")
         color_hex = self.config.get("spotlight", "color")
+        opacity = self.config.get("spotlight", "opacity")
         base_color = QColor(color_hex)
 
-        # Draw bright glowing circle around cursor
+        # Draw bright glowing circle around cursor with opacity control
         gradient = QRadialGradient(self.last_cursor_pos, radius)
-        gradient.setColorAt(0, QColor(base_color.red(), base_color.green(), base_color.blue(), 180))
-        gradient.setColorAt(0.3, QColor(base_color.red(), base_color.green(), base_color.blue(), 120))
-        gradient.setColorAt(0.7, QColor(base_color.red(), base_color.green(), base_color.blue(), 60))
+        gradient.setColorAt(0, QColor(base_color.red(), base_color.green(), base_color.blue(), int(180 * opacity)))
+        gradient.setColorAt(0.3, QColor(base_color.red(), base_color.green(), base_color.blue(), int(120 * opacity)))
+        gradient.setColorAt(0.7, QColor(base_color.red(), base_color.green(), base_color.blue(), int(60 * opacity)))
         gradient.setColorAt(1, QColor(255, 255, 255, 0))  # Transparent edge
 
         painter.setBrush(gradient)
@@ -199,7 +200,7 @@ class OverlayWindow(QWidget):
 
         # Draw bright ring for emphasis
         ring_radius = self.config.get("spotlight", "ring_radius")
-        pen = QPen(QColor(base_color.red(), base_color.green(), base_color.blue(), 200), 3)
+        pen = QPen(QColor(base_color.red(), base_color.green(), base_color.blue(), int(200 * opacity)), 3)
         painter.setPen(pen)
         painter.setBrush(Qt.NoBrush)
         painter.drawEllipse(self.last_cursor_pos, ring_radius, ring_radius)

@@ -44,6 +44,10 @@ class ShortcutRecorder(QLineEdit):
         key = event.key()
         modifiers = event.modifiers()
 
+        # Ignore pure modifier keys
+        if key in (Qt.Key_Control, Qt.Key_Shift, Qt.Key_Alt, Qt.Key_Meta):
+            return
+
         # Build shortcut string
         parts = []
         if modifiers & Qt.ControlModifier:
@@ -56,25 +60,32 @@ class ShortcutRecorder(QLineEdit):
             parts.append("<cmd>")
 
         # Add main key
-        if key not in (Qt.Key_Control, Qt.Key_Shift, Qt.Key_Alt, Qt.Key_Meta):
-            key_text = event.text().lower()
-            if key_text and key_text.isprintable():
-                parts.append(key_text)
-            else:
-                # Special keys
-                key_name = {
-                    Qt.Key_Escape: "esc",
-                    Qt.Key_Tab: "tab",
-                    Qt.Key_Space: "space",
-                    Qt.Key_Return: "enter",
-                    Qt.Key_Enter: "enter",
-                }.get(key)
-                if key_name:
-                    parts.append(f"<{key_name}>")
+        key_text = event.text().lower()
+        if key_text and key_text.isprintable():
+            parts.append(key_text)
+        else:
+            # Special keys
+            key_name = {
+                Qt.Key_Escape: "esc",
+                Qt.Key_Tab: "tab",
+                Qt.Key_Space: "space",
+                Qt.Key_Return: "enter",
+                Qt.Key_Enter: "enter",
+            }.get(key)
+            if key_name:
+                parts.append(f"<{key_name}>")
 
-        if len(parts) > 1:  # Need at least one modifier and one key
+        # Set the shortcut if we have at least one modifier and one key
+        if len(parts) >= 2:
             shortcut = "+".join(parts)
             self.setText(shortcut)
+            self.recording = False
+            self.setStyleSheet("")
+        elif len(parts) == 1 and not parts[0].startswith("<"):
+            # Single key without modifier - also accept it
+            self.setText(parts[0])
+            self.recording = False
+            self.setStyleSheet("")
 
 
 class SettingsDialog(QDialog):
@@ -100,7 +111,7 @@ class SettingsDialog(QDialog):
 
     def _setup_ui(self):
         """Set up the user interface."""
-        self.setWindowTitle("SpotCursor Settings")
+        self.setWindowTitle("Glowpoint Settings")
         self.setMinimumWidth(500)
 
         layout = QVBoxLayout()
@@ -167,10 +178,8 @@ class SettingsDialog(QDialog):
         opacity_layout = QHBoxLayout()
         opacity_layout.addWidget(self.opacity_slider)
         opacity_layout.addWidget(self.opacity_label)
-        self.opacity_slider.valueChanged.connect(
-            lambda v: self.opacity_label.setText(f"{v}%")
-        )
-        spotlight_layout.addRow("Dimming Opacity:", opacity_layout)
+        self.opacity_slider.valueChanged.connect(self._on_opacity_changed)
+        spotlight_layout.addRow("Glow Opacity:", opacity_layout)
 
         # Spotlight color picker
         self.spotlight_color_button = QPushButton("Choose Color")
@@ -294,12 +303,18 @@ class SettingsDialog(QDialog):
         self.ring_radius_label.setText(f"{value}px")
         self._update_live_preview()
 
+    def _on_opacity_changed(self, value):
+        """Handle opacity changes."""
+        self.opacity_label.setText(f"{value}%")
+        self._update_live_preview()
+
     def _update_live_preview(self):
         """Update the overlay with current settings for live preview."""
         if self.overlay:
             # Temporarily update config values for preview
             self.config.set(self.radius_slider.value(), "spotlight", "radius")
             self.config.set(self.ring_radius_slider.value(), "spotlight", "ring_radius")
+            self.config.set(self.opacity_slider.value() / 100.0, "spotlight", "opacity")
             self.config.set(self.spotlight_color, "spotlight", "color")
             # Force overlay to repaint
             self.overlay.update()

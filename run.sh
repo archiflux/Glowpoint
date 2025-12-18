@@ -1,5 +1,5 @@
 #!/bin/bash
-# Launcher script for SpotCursor
+# Launcher script for Glowpoint
 
 # Check if Python 3 is installed
 if ! command -v python3 &> /dev/null; then
@@ -19,6 +19,6 @@ if [ $? -ne 0 ]; then
     fi
 fi
 
-# Run SpotCursor
+# Run Glowpoint
 cd "$(dirname "$0")"
-python3 spotcursor.py
+python3 glowpoint.py

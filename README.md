@@ -1,4 +1,4 @@
-# SpotCursor 🎯
+# Glowpoint 🎯
 
 A lightweight cursor highlighter and screen drawing tool perfect for presentations, screen sharing, and tutorials. Highlight your cursor with an attractive spotlight effect and draw annotations on your screen in real-time!
 
@@ -35,13 +35,13 @@ A lightweight cursor highlighter and screen drawing tool perfect for presentatio
 
 3. **Run the application**:
    ```bash
-   python spotcursor.py
+   python glowpoint.py
    ```
 
    Or make it executable (Linux/Mac):
    ```bash
-   chmod +x spotcursor.py
-   ./spotcursor.py
+   chmod +x glowpoint.py
+   ./glowpoint.py
    ```
 
 ## 🎮 Usage
@@ -74,7 +74,7 @@ A lightweight cursor highlighter and screen drawing tool perfect for presentatio
 
 ### System Tray
 
-Right-click the SpotCursor icon in your system tray to:
+Right-click the Glowpoint icon in your system tray to:
 - Toggle spotlight
 - Clear drawings
 - Access settings
@@ -96,7 +96,7 @@ In the Settings dialog, you can adjust:
 - **Spotlight Radius**: Size of the spotlight glow (50-200 pixels)
 - **Ring Radius**: Size of the bright ring around cursor (10-100 pixels)
 - **Spotlight Color**: Choose any color for your spotlight using the color picker
-- **Dimming Opacity**: (Legacy setting, spotlight now uses bright glow instead of dimming)
+- **Glow Opacity**: Controls the intensity/brightness of the spotlight glow (0-100%)
 
 **Live Preview**: All spotlight settings update in real-time as you adjust them - move your cursor to see the changes immediately!
 
@@ -152,13 +152,13 @@ To create a single executable file that doesn't require Python installation:
 
 2. **Create the executable**:
    ```bash
-   pyinstaller --onefile --windowed --name SpotCursor spotcursor.py
+   pyinstaller --onefile --windowed --name Glowpoint glowpoint.py
    ```
 
 3. **Find your executable**:
    - The executable will be in the `dist/` folder
-   - On Windows: `dist/SpotCursor.exe`
-   - On Linux/Mac: `dist/SpotCursor`
+   - On Windows: `dist/Glowpoint.exe`
+   - On Linux/Mac: `dist/Glowpoint`
 
 4. **Distribute**:
    - Copy the executable to any computer
@@ -174,7 +174,7 @@ To create a single executable file that doesn't require Python installation:
 
 On macOS, you may need to grant accessibility permissions:
 1. Go to System Preferences → Security & Privacy → Privacy → Accessibility
-2. Add Python or your SpotCursor executable to the list
+2. Add Python or your Glowpoint executable to the list
 3. Grant permission
 
 ### Linux Requirements
@@ -195,8 +195,8 @@ On macOS, you may need to grant accessibility permissions:
 ### Project Structure
 
 ```
-SpotCursor/
-├── spotcursor.py          # Main application entry point
+Glowpoint/
+├── glowpoint.py          # Main application entry point
 ├── config_manager.py      # Configuration management
 ├── overlay_window.py      # Transparent overlay for drawing
 ├── hotkey_manager.py      # Global keyboard shortcuts
@@ -259,7 +259,7 @@ This project is open source and available for personal and commercial use.
 
 ### Can't see the system tray icon
 - Look in the system tray overflow area (hidden icons)
-- Check if the application is running: `ps aux | grep spotcursor`
+- Check if the application is running: `ps aux | grep glowpoint`
 
 ### Application won't start
 - Verify Python 3.7+ is installed: `python --version`
@@ -276,4 +276,4 @@ If you encounter issues or have questions:
 
 ---
 
-**Enjoy using SpotCursor!** ⭐ If you find it helpful, please share it with others!
+**Enjoy using Glowpoint!** ⭐ If you find it helpful, please share it with others!

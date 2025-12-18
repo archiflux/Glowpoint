@@ -1,5 +1,5 @@
 @echo off
-REM Launcher script for SpotCursor (Windows)
+REM Launcher script for Glowpoint (Windows)
 
 REM Check if Python is installed
 python --version >nul 2>&1
@@ -22,5 +22,5 @@ if errorlevel 1 (
     )
 )
 
-REM Run SpotCursor
-python spotcursor.py
+REM Run Glowpoint
+python glowpoint.py
