@@ -138,7 +138,9 @@ Clear: {s('clear_screen')} | Quit: {s('quit')}"""
 
     def _toggle_spotlight(self):
         """Toggle spotlight on/off."""
+        print(f"[DEBUG] _toggle_spotlight called. Current state: {self.overlay.spotlight_enabled}")
         self.overlay.toggle_spotlight()
+        print(f"[DEBUG] After toggle. New state: {self.overlay.spotlight_enabled}")
         self.spotlight_action.setText("Spotlight: ON" if self.overlay.spotlight_enabled else "Spotlight: OFF")
 
     def _toggle_drawing(self, color: str):
@@ -147,12 +149,15 @@ Clear: {s('clear_screen')} | Quit: {s('quit')}"""
         Args:
             color: Color name (blue, red, yellow)
         """
+        print(f"[DEBUG] _toggle_drawing called with color: {color}")
         if self.overlay.drawing_active and self.drawing_color == color:
             # Stop drawing if same color is pressed again
+            print(f"[DEBUG] Stopping drawing")
             self.overlay.stop_drawing()
             self.drawing_color = None
         else:
             # Start drawing with new color
+            print(f"[DEBUG] Starting drawing with color: {color}")
             self.overlay.start_drawing(color)
             self.drawing_color = color
 

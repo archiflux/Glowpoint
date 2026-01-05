@@ -22,9 +22,13 @@ class OverlayWindow(QWidget):
         self.all_paths: List[Tuple[List[QPoint], str]] = []
         self.spotlight_enabled = self.config.get("spotlight", "enabled")
         self.last_cursor_pos = QPoint(0, 0)
+        self.paint_count = 0  # Debug counter
+
+        print(f"[DEBUG] OverlayWindow initialized. Spotlight enabled: {self.spotlight_enabled}")
 
         self._setup_window()
         self._setup_cursor_timer()
+        print(f"[DEBUG] OverlayWindow setup complete")
 
     def _setup_window(self):
         """Set up window properties."""
@@ -55,7 +59,7 @@ class OverlayWindow(QWidget):
         """Update cursor position for spotlight effect."""
         if self.spotlight_enabled:
             self.last_cursor_pos = QCursor.pos()
-            self.update()
+            self.update()  # Trigger repaint
 
     def start_drawing(self, color: str):
         """Start drawing mode with specified color.
@@ -63,10 +67,12 @@ class OverlayWindow(QWidget):
         Args:
             color: Color name (blue, red, yellow)
         """
+        print(f"[DEBUG] start_drawing called with color: {color}")
         self.drawing_active = True
         color_hex = self.config.get("drawing", "colors", color)
         self.current_color = color_hex
         self.current_path = []
+        print(f"[DEBUG] Drawing active, color_hex: {color_hex}")
 
         # Make window accept mouse events
         self.setWindowFlags(
@@ -78,6 +84,7 @@ class OverlayWindow(QWidget):
         self.setAttribute(Qt.WA_ShowWithoutActivating)
         self.showFullScreen()
         self.setCursor(Qt.CrossCursor)
+        print(f"[DEBUG] Drawing mode window flags set")
 
     def stop_drawing(self):
         """Stop drawing mode."""
@@ -110,8 +117,10 @@ class OverlayWindow(QWidget):
 
     def toggle_spotlight(self):
         """Toggle cursor spotlight on/off."""
+        print(f"[DEBUG] toggle_spotlight called. Current: {self.spotlight_enabled}")
         self.spotlight_enabled = not self.spotlight_enabled
         self.config.set(self.spotlight_enabled, "spotlight", "enabled")
+        print(f"[DEBUG] Spotlight now: {self.spotlight_enabled}, calling update()")
         self.update()
 
     def mousePressEvent(self, event):
@@ -151,11 +160,17 @@ class OverlayWindow(QWidget):
         Args:
             event: Paint event
         """
+        self.paint_count += 1
+        if self.paint_count % 60 == 1:  # Print every 60 frames (once per second)
+            print(f"[DEBUG] paintEvent called (count: {self.paint_count}), spotlight_enabled: {self.spotlight_enabled}")
+
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
 
         # Draw spotlight effect
         if self.spotlight_enabled:
+            if self.paint_count % 60 == 1:
+                print(f"[DEBUG] Drawing spotlight at {self.last_cursor_pos}")
             self._draw_spotlight(painter)
 
         # Draw all saved paths
