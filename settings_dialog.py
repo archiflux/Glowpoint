@@ -303,8 +303,6 @@ class SettingsDialog(QDialog):
         self.config.set(self.line_width_slider.value(), "drawing", "line_width")
 
         self.settings_changed.emit()
-        QMessageBox.information(self, "Settings Saved",
-                               "Settings have been saved successfully!")
         self.accept()
 
     def _choose_spotlight_color(self):

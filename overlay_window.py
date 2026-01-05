@@ -166,7 +166,17 @@ class OverlayWindow(QWidget):
                 self.shift_line_preview = event.pos()
                 self.update()
             else:
-                self.current_path.append(event.pos())
+                # Add point decimation to reduce jaggedness on sharp corners
+                # Only add point if it's far enough from the last point
+                if len(self.current_path) == 0:
+                    self.current_path.append(event.pos())
+                else:
+                    last_point = self.current_path[-1]
+                    distance = ((event.pos().x() - last_point.x()) ** 2 +
+                               (event.pos().y() - last_point.y()) ** 2) ** 0.5
+                    # Only add if distance is greater than 3 pixels
+                    if distance > 3:
+                        self.current_path.append(event.pos())
                 self.update()
 
     def mouseReleaseEvent(self, event):
@@ -184,6 +194,9 @@ class OverlayWindow(QWidget):
                 self.shift_line_start = None
                 self.shift_line_preview = None
             elif self.current_path:
+                # If only one point (single click), add it twice to create a dot
+                if len(self.current_path) == 1:
+                    self.current_path.append(self.current_path[0])
                 # Save the path with its line width
                 self.all_paths.append((self.current_path.copy(), self.current_color, self.current_line_width))
                 self.current_path = []
@@ -245,12 +258,12 @@ class OverlayWindow(QWidget):
 
         # Draw all saved paths with feathering/glow effect
         for path, color, path_line_width in self.all_paths:
-            if len(path) > 1:
+            if len(path) >= 1:
                 smooth_path = self._create_smooth_path(path)
                 self._draw_feathered_path(painter, smooth_path, QColor(color), path_line_width)
 
         # Draw current path being drawn
-        if self.current_path and len(self.current_path) > 1:
+        if self.current_path and len(self.current_path) >= 1:
             smooth_path = self._create_smooth_path(self.current_path)
             self._draw_feathered_path(painter, smooth_path, QColor(self.current_color), self.current_line_width)
 
@@ -313,7 +326,12 @@ class OverlayWindow(QWidget):
         """
         path = QPainterPath()
 
-        if len(points) < 2:
+        if len(points) < 1:
+            return path
+
+        if len(points) == 1:
+            # Single point - create a small circle for a dot
+            path.addEllipse(points[0], 0.5, 0.5)
             return path
 
         if len(points) == 2:
