@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Glowpoint - Cursor highlighter and screen drawing tool for presentations."""
+"""SpotCursor - Cursor highlighter and screen drawing tool for presentations."""
 import sys
 from PyQt5.QtWidgets import QApplication, QSystemTrayIcon, QMenu, QAction, QMessageBox
 from PyQt5.QtGui import QIcon, QPixmap, QPainter, QColor
@@ -11,8 +11,8 @@ from hotkey_manager import HotkeyManager
 from settings_dialog import SettingsDialog
 
 
-class GlowpointApp:
-    """Main application class for Glowpoint."""
+class SpotCursorApp:
+    """Main application class for SpotCursor."""
 
     def __init__(self):
         """Initialize the application."""
@@ -56,7 +56,7 @@ class GlowpointApp:
 
         # Create tooltip with all hotkeys (compact format to avoid cutoff)
         s = self.config.get_shortcut  # shorthand
-        tooltip = f"""Glowpoint Shortcuts:
+        tooltip = f"""SpotCursor Shortcuts:
 Spotlight: {s('toggle_spotlight')}
 Draw: B/R/Y/G (Ctrl+Shift+B/R/Y/G)
 Clear: {s('clear_screen')} | Quit: {s('quit')}"""
@@ -101,7 +101,7 @@ Clear: {s('clear_screen')} | Quit: {s('quit')}"""
 
         # Show notification on startup
         self.tray_icon.showMessage(
-            "Glowpoint Started",
+            "SpotCursor Started",
             f"Hover over icon to see all shortcuts\n"
             f"Spotlight: {self.config.get_shortcut('toggle_spotlight')}\n"
             f"Draw: {self.config.get_shortcut('draw_blue')}, {self.config.get_shortcut('draw_red')}, "
@@ -123,8 +123,8 @@ Clear: {s('clear_screen')} | Quit: {s('quit')}"""
         painter = QPainter(pixmap)
         painter.setRenderHint(QPainter.Antialiasing)
 
-        # Draw outer circle (glow)
-        painter.setBrush(QColor(255, 200, 0, 200))
+        # Draw outer circle (spotlight)
+        painter.setBrush(QColor(33, 150, 243, 200))
         painter.setPen(Qt.NoPen)
         painter.drawEllipse(4, 4, 56, 56)
 
@@ -185,17 +185,16 @@ Clear: {s('clear_screen')} | Quit: {s('quit')}"""
         """Show about dialog."""
         QMessageBox.about(
             None,
-            "About Glowpoint",
-            "<h2>Glowpoint</h2>"
+            "About SpotCursor",
+            "<h2>SpotCursor</h2>"
             "<p>Version 1.0.0</p>"
             "<p>A cursor highlighter and screen drawing tool for presentations and screen sharing.</p>"
             "<p><b>Features:</b></p>"
             "<ul>"
-            "<li>Customizable glowing spotlight</li>"
+            "<li>Spotlight cursor highlighting</li>"
             "<li>Draw on screen in multiple colors</li>"
             "<li>Customizable keyboard shortcuts</li>"
             "<li>Always-on-top annotations</li>"
-            "<li>Live preview of spotlight settings</li>"
             "</ul>"
             "<p><b>Default Shortcuts:</b></p>"
             "<ul>"
@@ -228,7 +227,7 @@ Clear: {s('clear_screen')} | Quit: {s('quit')}"""
 
 def main():
     """Main entry point."""
-    app = GlowpointApp()
+    app = SpotCursorApp()
     sys.exit(app.run())
 
 
