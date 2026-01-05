@@ -59,10 +59,18 @@ class ShortcutRecorder(QLineEdit):
         if modifiers & Qt.MetaModifier:
             parts.append("<cmd>")
 
-        # Add main key
-        key_text = event.text().lower()
-        if key_text and key_text.isprintable():
-            parts.append(key_text)
+        # Add main key - use key code for letters and numbers
+        key_text = None
+
+        # Check for letter keys (A-Z)
+        if Qt.Key_A <= key <= Qt.Key_Z:
+            key_text = chr(key).lower()
+        # Check for number keys (0-9)
+        elif Qt.Key_0 <= key <= Qt.Key_9:
+            key_text = chr(key)
+        # Try to get text from event (for other printable characters)
+        elif event.text() and event.text().isprintable():
+            key_text = event.text().lower()
         else:
             # Special keys
             key_name = {
@@ -73,7 +81,10 @@ class ShortcutRecorder(QLineEdit):
                 Qt.Key_Enter: "enter",
             }.get(key)
             if key_name:
-                parts.append(f"<{key_name}>")
+                key_text = f"<{key_name}>"
+
+        if key_text:
+            parts.append(key_text)
 
         # Set the shortcut if we have at least one modifier and one key
         if len(parts) >= 2:

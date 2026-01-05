@@ -19,7 +19,8 @@ class OverlayWindow(QWidget):
         self.drawing_active = False
         self.current_color = None
         self.current_path = []
-        self.all_paths: List[Tuple[List[QPoint], str]] = []
+        self.current_line_width = None
+        self.all_paths: List[Tuple[List[QPoint], str, int]] = []  # path, color, line_width
         self.spotlight_enabled = self.config.get("spotlight", "enabled")
         self.last_cursor_pos = QPoint(0, 0)
 
@@ -82,6 +83,7 @@ class OverlayWindow(QWidget):
         self.drawing_active = True
         color_hex = self.config.get("drawing", "colors", color)
         self.current_color = color_hex
+        self.current_line_width = self.config.get("drawing", "line_width")  # Capture current width
         self.current_path = []
 
         # Make window accept mouse and keyboard events
@@ -99,12 +101,13 @@ class OverlayWindow(QWidget):
     def stop_drawing(self):
         """Stop drawing mode."""
         if self.drawing_active and self.current_path:
-            # Save the current path
-            self.all_paths.append((self.current_path.copy(), self.current_color))
+            # Save the current path with its line width
+            self.all_paths.append((self.current_path.copy(), self.current_color, self.current_line_width))
 
         self.drawing_active = False
         self.current_path = []
         self.current_color = None
+        self.current_line_width = None
 
         # Make window transparent to mouse events again
         self.setWindowFlags(
@@ -158,7 +161,8 @@ class OverlayWindow(QWidget):
         """
         if self.drawing_active and event.button() == Qt.LeftButton:
             if self.current_path:
-                self.all_paths.append((self.current_path.copy(), self.current_color))
+                # Save the path with its line width
+                self.all_paths.append((self.current_path.copy(), self.current_color, self.current_line_width))
                 self.current_path = []
             self.update()
 
@@ -185,10 +189,10 @@ class OverlayWindow(QWidget):
         delta = event.angleDelta().y()
         if delta > 0:
             # Scroll up - increase thickness
-            new_width = min(current_width + 2, 50)  # Max 50
+            new_width = min(current_width + 5, 100)  # Max 100
         else:
             # Scroll down - decrease thickness
-            new_width = max(current_width - 2, 2)  # Min 2
+            new_width = max(current_width - 5, 2)  # Min 2
 
         # Update config if changed
         if new_width != current_width:
@@ -213,10 +217,9 @@ class OverlayWindow(QWidget):
             self._draw_spotlight(painter)
 
         # Draw all saved paths
-        line_width = self.config.get("drawing", "line_width")
-        for path, color in self.all_paths:
+        for path, color, path_line_width in self.all_paths:
             if len(path) > 1:
-                pen = QPen(QColor(color), line_width, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
+                pen = QPen(QColor(color), path_line_width, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
                 painter.setPen(pen)
                 painter.setBrush(Qt.NoBrush)
 
@@ -226,7 +229,7 @@ class OverlayWindow(QWidget):
 
         # Draw current path being drawn
         if self.current_path and len(self.current_path) > 1:
-            pen = QPen(QColor(self.current_color), line_width, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
+            pen = QPen(QColor(self.current_color), self.current_line_width, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
             painter.setPen(pen)
             painter.setBrush(Qt.NoBrush)
 
@@ -237,7 +240,8 @@ class OverlayWindow(QWidget):
         # Draw thickness preview indicator
         if self.show_thickness_preview:
             cursor_pos = QCursor.pos()
-            radius = line_width / 2
+            current_line_width = self.config.get("drawing", "line_width")
+            radius = current_line_width / 2
 
             # Draw dashed semi-transparent black ring
             pen = QPen(QColor(0, 0, 0, 128), 2, Qt.DashLine)
