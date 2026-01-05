@@ -22,13 +22,14 @@ class OverlayWindow(QWidget):
         self.all_paths: List[Tuple[List[QPoint], str]] = []
         self.spotlight_enabled = self.config.get("spotlight", "enabled")
         self.last_cursor_pos = QPoint(0, 0)
-        self.paint_count = 0  # Debug counter
 
-        print(f"[DEBUG] OverlayWindow initialized. Spotlight enabled: {self.spotlight_enabled}")
+        # Thickness preview
+        self.show_thickness_preview = False
+        self.thickness_preview_timer = None
 
         self._setup_window()
         self._setup_cursor_timer()
-        print(f"[DEBUG] OverlayWindow setup complete")
+        self._setup_thickness_preview_timer()
 
     def _setup_window(self):
         """Set up window properties."""
@@ -55,11 +56,22 @@ class OverlayWindow(QWidget):
         self.cursor_timer.timeout.connect(self._update_cursor_position)
         self.cursor_timer.start(16)  # ~60 FPS
 
+    def _setup_thickness_preview_timer(self):
+        """Set up timer for thickness preview."""
+        self.thickness_preview_timer = QTimer()
+        self.thickness_preview_timer.timeout.connect(self._hide_thickness_preview)
+        self.thickness_preview_timer.setSingleShot(True)
+
     def _update_cursor_position(self):
         """Update cursor position for spotlight effect."""
         if self.spotlight_enabled:
             self.last_cursor_pos = QCursor.pos()
             self.update()  # Trigger repaint
+
+    def _hide_thickness_preview(self):
+        """Hide the thickness preview indicator."""
+        self.show_thickness_preview = False
+        self.update()
 
     def start_drawing(self, color: str):
         """Start drawing mode with specified color.
@@ -67,14 +79,12 @@ class OverlayWindow(QWidget):
         Args:
             color: Color name (blue, red, yellow)
         """
-        print(f"[DEBUG] start_drawing called with color: {color}")
         self.drawing_active = True
         color_hex = self.config.get("drawing", "colors", color)
         self.current_color = color_hex
         self.current_path = []
-        print(f"[DEBUG] Drawing active, color_hex: {color_hex}")
 
-        # Make window accept mouse events
+        # Make window accept mouse and keyboard events
         self.setWindowFlags(
             Qt.WindowStaysOnTopHint |
             Qt.FramelessWindowHint |
@@ -84,7 +94,7 @@ class OverlayWindow(QWidget):
         self.setAttribute(Qt.WA_ShowWithoutActivating)
         self.showFullScreen()
         self.setCursor(Qt.CrossCursor)
-        print(f"[DEBUG] Drawing mode window flags set")
+        self.setFocus()  # Ensure window can receive keyboard events
 
     def stop_drawing(self):
         """Stop drawing mode."""
@@ -117,10 +127,8 @@ class OverlayWindow(QWidget):
 
     def toggle_spotlight(self):
         """Toggle cursor spotlight on/off."""
-        print(f"[DEBUG] toggle_spotlight called. Current: {self.spotlight_enabled}")
         self.spotlight_enabled = not self.spotlight_enabled
         self.config.set(self.spotlight_enabled, "spotlight", "enabled")
-        print(f"[DEBUG] Spotlight now: {self.spotlight_enabled}, calling update()")
         self.update()
 
     def mousePressEvent(self, event):
@@ -154,23 +162,54 @@ class OverlayWindow(QWidget):
                 self.current_path = []
             self.update()
 
+    def keyPressEvent(self, event):
+        """Handle key press events.
+
+        Args:
+            event: Key event
+        """
+        if event.key() == Qt.Key_Escape and self.drawing_active:
+            # Stop drawing when Escape is pressed
+            self.stop_drawing()
+
+    def wheelEvent(self, event):
+        """Handle mouse wheel events for adjusting drawing thickness.
+
+        Args:
+            event: Wheel event
+        """
+        # Get current line width
+        current_width = self.config.get("drawing", "line_width")
+
+        # Adjust based on scroll direction
+        delta = event.angleDelta().y()
+        if delta > 0:
+            # Scroll up - increase thickness
+            new_width = min(current_width + 2, 50)  # Max 50
+        else:
+            # Scroll down - decrease thickness
+            new_width = max(current_width - 2, 2)  # Min 2
+
+        # Update config if changed
+        if new_width != current_width:
+            self.config.set(new_width, "drawing", "line_width")
+
+            # Show thickness preview
+            self.show_thickness_preview = True
+            self.thickness_preview_timer.start(500)  # Hide after 0.5 seconds
+            self.update()
+
     def paintEvent(self, event):
         """Paint the overlay.
 
         Args:
             event: Paint event
         """
-        self.paint_count += 1
-        if self.paint_count % 60 == 1:  # Print every 60 frames (once per second)
-            print(f"[DEBUG] paintEvent called (count: {self.paint_count}), spotlight_enabled: {self.spotlight_enabled}")
-
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
 
         # Draw spotlight effect
         if self.spotlight_enabled:
-            if self.paint_count % 60 == 1:
-                print(f"[DEBUG] Drawing spotlight at {self.last_cursor_pos}")
             self._draw_spotlight(painter)
 
         # Draw all saved paths
@@ -194,6 +233,17 @@ class OverlayWindow(QWidget):
             # Use smoothed path
             smooth_path = self._create_smooth_path(self.current_path)
             painter.drawPath(smooth_path)
+
+        # Draw thickness preview indicator
+        if self.show_thickness_preview:
+            cursor_pos = QCursor.pos()
+            radius = line_width / 2
+
+            # Draw dashed semi-transparent black ring
+            pen = QPen(QColor(0, 0, 0, 128), 2, Qt.DashLine)
+            painter.setPen(pen)
+            painter.setBrush(Qt.NoBrush)
+            painter.drawEllipse(cursor_pos, int(radius), int(radius))
 
     def _create_smooth_path(self, points: List[QPoint]) -> QPainterPath:
         """Create a smooth curved path from a list of points using quadratic Bezier curves.

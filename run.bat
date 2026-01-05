@@ -22,5 +22,5 @@ if errorlevel 1 (
     )
 )
 
-REM Run Glowpoint
-python glowpoint.py
+REM Run Glowpoint without console window
+start "" pythonw glowpoint.py
