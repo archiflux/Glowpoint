@@ -194,10 +194,7 @@ class OverlayWindow(QWidget):
                 self.shift_line_start = None
                 self.shift_line_preview = None
             elif self.current_path:
-                # If only one point (single click), add it twice to create a dot
-                if len(self.current_path) == 1:
-                    self.current_path.append(self.current_path[0])
-                # Save the path with its line width
+                # Save the path with its line width (don't duplicate single points)
                 self.all_paths.append((self.current_path.copy(), self.current_color, self.current_line_width))
                 self.current_path = []
             self.update()
@@ -330,9 +327,9 @@ class OverlayWindow(QWidget):
             return path
 
         if len(points) == 1:
-            # Single point - create a dot with visible size
-            # Size is proportional to line width but shows as a proper dot
-            path.addEllipse(points[0], 1, 1)
+            # Single point - create a visible dot
+            # The pen width in _draw_feathered_path will make it properly sized
+            path.addEllipse(points[0], 2, 2)
             return path
 
         if len(points) == 2:
