@@ -168,15 +168,15 @@ class OverlayWindow(QWidget):
             else:
                 # Add point decimation to reduce jaggedness on sharp corners
                 # Only add point if it's far enough from the last point
-                if len(self.current_path) == 0:
-                    self.current_path.append(event.pos())
-                else:
+                if len(self.current_path) > 0:
                     last_point = self.current_path[-1]
                     distance = ((event.pos().x() - last_point.x()) ** 2 +
                                (event.pos().y() - last_point.y()) ** 2) ** 0.5
-                    # Only add if distance is greater than 3 pixels
-                    if distance > 3:
+                    # Increased threshold to 8 pixels for smoother lines
+                    if distance > 8:
                         self.current_path.append(event.pos())
+                else:
+                    self.current_path.append(event.pos())
                 self.update()
 
     def mouseReleaseEvent(self, event):
@@ -330,8 +330,9 @@ class OverlayWindow(QWidget):
             return path
 
         if len(points) == 1:
-            # Single point - create a small circle for a dot
-            path.addEllipse(points[0], 0.5, 0.5)
+            # Single point - create a dot with visible size
+            # Size is proportional to line width but shows as a proper dot
+            path.addEllipse(points[0], 1, 1)
             return path
 
         if len(points) == 2:
