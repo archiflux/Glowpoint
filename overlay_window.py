@@ -198,6 +198,10 @@ class OverlayWindow(QWidget):
         if new_width != current_width:
             self.config.set(new_width, "drawing", "line_width")
 
+            # If currently drawing, update the current line width immediately
+            if self.drawing_active:
+                self.current_line_width = new_width
+
             # Show thickness preview
             self.show_thickness_preview = True
             self.thickness_preview_timer.start(500)  # Hide after 0.5 seconds

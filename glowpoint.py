@@ -168,9 +168,15 @@ Clear: {s('clear_screen')} | Quit: {s('quit')}"""
 
     def _show_settings(self):
         """Show settings dialog."""
+        # Pause hotkeys while settings dialog is open to prevent conflicts
+        self.hotkey_manager.stop()
+
         dialog = SettingsDialog(self.config, self.overlay)
         dialog.settings_changed.connect(self._on_settings_changed)
         dialog.exec_()
+
+        # Resume hotkeys after settings dialog closes
+        self.hotkey_manager.reload_hotkeys()
 
     def _on_settings_changed(self):
         """Handle settings changes."""

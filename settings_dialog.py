@@ -41,6 +41,9 @@ class ShortcutRecorder(QLineEdit):
         if not self.recording:
             return
 
+        # Accept the event to prevent it from propagating to other handlers
+        event.accept()
+
         key = event.key()
         modifiers = event.modifiers()
 
@@ -244,6 +247,12 @@ class SettingsDialog(QDialog):
 
     def _load_settings(self):
         """Load current settings into the dialog."""
+        # Block signals while loading to prevent triggering updates
+        self.radius_slider.blockSignals(True)
+        self.ring_radius_slider.blockSignals(True)
+        self.opacity_slider.blockSignals(True)
+        self.line_width_slider.blockSignals(True)
+
         # Load shortcuts
         for action, recorder in self.shortcut_inputs.items():
             shortcut = self.config.get_shortcut(action)
@@ -252,12 +261,15 @@ class SettingsDialog(QDialog):
         # Load spotlight settings
         radius = self.config.get("spotlight", "radius")
         self.radius_slider.setValue(radius)
+        self.radius_label.setText(f"{radius}px")
 
         ring_radius = self.config.get("spotlight", "ring_radius")
         self.ring_radius_slider.setValue(ring_radius)
+        self.ring_radius_label.setText(f"{ring_radius}px")
 
         opacity = int(self.config.get("spotlight", "opacity") * 100)
         self.opacity_slider.setValue(opacity)
+        self.opacity_label.setText(f"{opacity}%")
 
         self.spotlight_color = self.config.get("spotlight", "color")
         self._update_color_preview()
@@ -265,6 +277,13 @@ class SettingsDialog(QDialog):
         # Load drawing settings
         line_width = self.config.get("drawing", "line_width")
         self.line_width_slider.setValue(line_width)
+        self.line_width_label.setText(f"{line_width}px")
+
+        # Unblock signals
+        self.radius_slider.blockSignals(False)
+        self.ring_radius_slider.blockSignals(False)
+        self.opacity_slider.blockSignals(False)
+        self.line_width_slider.blockSignals(False)
 
     def _save_settings(self):
         """Save settings to configuration."""
