@@ -171,7 +171,7 @@ class SettingsDialog(QDialog):
 
         # Ring radius slider
         self.ring_radius_slider = QSlider(Qt.Horizontal)
-        self.ring_radius_slider.setMinimum(10)
+        self.ring_radius_slider.setMinimum(0)
         self.ring_radius_slider.setMaximum(100)
         self.ring_radius_slider.setTickPosition(QSlider.TicksBelow)
         self.ring_radius_slider.setTickInterval(10)
@@ -304,8 +304,7 @@ class SettingsDialog(QDialog):
 
         self.settings_changed.emit()
         QMessageBox.information(self, "Settings Saved",
-                               "Settings have been saved successfully!\n\n"
-                               "Note: Restart the application for shortcut changes to take effect.")
+                               "Settings have been saved successfully!")
         self.accept()
 
     def _choose_spotlight_color(self):
