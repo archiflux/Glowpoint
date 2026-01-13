@@ -22,6 +22,7 @@ class OverlayWindow(QWidget):
         self.all_paths: List[Tuple[List[QPoint], str]] = []
         self.spotlight_enabled = self.config.get("spotlight", "enabled")
         self.last_cursor_pos = QPoint(0, 0)
+        self.last_line_endpoint = None  # For shift+click straight lines
 
         self._setup_window()
         self._setup_cursor_timer()
@@ -38,12 +39,27 @@ class OverlayWindow(QWidget):
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setAttribute(Qt.WA_ShowWithoutActivating)
 
-        # Get screen geometry
+        # Get geometry for all screens combined (virtual desktop)
         from PyQt5.QtWidgets import QApplication
-        screen = QApplication.primaryScreen().geometry()
-        self.setGeometry(screen)
+        desktop = QApplication.desktop()
 
-        self.showFullScreen()
+        # Calculate bounding rectangle that covers all screens
+        x_min = y_min = float('inf')
+        x_max = y_max = float('-inf')
+
+        for i in range(desktop.screenCount()):
+            screen_geom = desktop.screenGeometry(i)
+            x_min = min(x_min, screen_geom.x())
+            y_min = min(y_min, screen_geom.y())
+            x_max = max(x_max, screen_geom.x() + screen_geom.width())
+            y_max = max(y_max, screen_geom.y() + screen_geom.height())
+
+        # Set geometry to cover all screens
+        self.setGeometry(int(x_min), int(y_min), int(x_max - x_min), int(y_max - y_min))
+        print(f"[OverlayWindow] Covering {desktop.screenCount()} screens: "
+              f"{int(x_min)},{int(y_min)} {int(x_max - x_min)}x{int(y_max - y_min)}")
+
+        self.show()
 
     def _setup_cursor_timer(self):
         """Set up timer for cursor position updates."""
@@ -81,8 +97,8 @@ class OverlayWindow(QWidget):
         )
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setAttribute(Qt.WA_ShowWithoutActivating)
-        print("[OverlayWindow] Showing fullscreen with cross cursor")
-        self.showFullScreen()
+        print("[OverlayWindow] Showing with cross cursor")
+        self.show()
         self.setCursor(Qt.CrossCursor)
         print("[OverlayWindow] start_drawing complete")
 
@@ -95,6 +111,7 @@ class OverlayWindow(QWidget):
         self.drawing_active = False
         self.current_path = []
         self.current_color = None
+        self.last_line_endpoint = None
 
         # Make window transparent to mouse events again
         # Must hide before changing flags for them to take effect
@@ -107,7 +124,7 @@ class OverlayWindow(QWidget):
         )
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setAttribute(Qt.WA_ShowWithoutActivating)
-        self.showFullScreen()
+        self.show()
         self.unsetCursor()
         self.update()
 
@@ -130,7 +147,19 @@ class OverlayWindow(QWidget):
             event: Mouse event
         """
         if self.drawing_active and event.button() == Qt.LeftButton:
-            self.current_path = [event.pos()]
+            from PyQt5.QtCore import Qt as QtModifier
+            # Check if shift is held for straight line mode
+            if event.modifiers() & QtModifier.ShiftModifier and self.last_line_endpoint:
+                # Draw straight line from last endpoint to current position
+                self.current_path = [self.last_line_endpoint, event.pos()]
+                self.all_paths.append((self.current_path.copy(), self.current_color))
+                self.last_line_endpoint = event.pos()
+                self.current_path = []
+                self.update()
+            else:
+                # Normal freehand drawing
+                self.current_path = [event.pos()]
+                self.last_line_endpoint = None
 
     def mouseMoveEvent(self, event):
         """Handle mouse move events.
@@ -149,10 +178,49 @@ class OverlayWindow(QWidget):
             event: Mouse event
         """
         if self.drawing_active and event.button() == Qt.LeftButton:
-            if self.current_path:
+            if self.current_path and len(self.current_path) > 0:
                 self.all_paths.append((self.current_path.copy(), self.current_color))
+                # Save last point for shift+click straight lines
+                self.last_line_endpoint = self.current_path[-1]
                 self.current_path = []
             self.update()
+
+    def keyPressEvent(self, event):
+        """Handle key press events.
+
+        Args:
+            event: Key event
+        """
+        from PyQt5.QtCore import Qt as QtKey
+        if self.drawing_active and event.key() == QtKey.Key_Escape:
+            print("[OverlayWindow] Escape key pressed, stopping drawing")
+            self.stop_drawing()
+
+    def wheelEvent(self, event):
+        """Handle mouse wheel events for changing line thickness.
+
+        Args:
+            event: Wheel event
+        """
+        if self.drawing_active:
+            # Get current line width
+            current_width = self.config.get("drawing", "line_width")
+
+            # Adjust based on wheel direction
+            delta = event.angleDelta().y()
+            if delta > 0:
+                # Scroll up - increase thickness
+                new_width = min(current_width + 1, 20)
+            else:
+                # Scroll down - decrease thickness
+                new_width = max(current_width - 1, 1)
+
+            # Save new width
+            if new_width != current_width:
+                self.config.set(new_width, "drawing", "line_width")
+                print(f"[OverlayWindow] Line width changed to {new_width}px")
+                # Show notification would be nice but we don't have access to tray icon here
+                self.update()
 
     def paintEvent(self, event):
         """Paint the overlay.
