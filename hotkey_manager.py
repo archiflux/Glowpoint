@@ -1,7 +1,7 @@
 """Global hotkey manager using pynput."""
 from pynput import keyboard
 from typing import Callable, Dict
-from PyQt5.QtCore import QObject, pyqtSignal
+from PyQt5.QtCore import QObject, pyqtSignal, QMetaObject, Qt, Q_ARG
 
 
 class HotkeyManager(QObject):
@@ -39,41 +39,91 @@ class HotkeyManager(QObject):
         # pynput's GlobalHotKeys uses the same format, just ensure consistency
         return shortcut.lower().replace(" ", "")
 
+    def _emit_signal_thread_safe(self, signal_name: str):
+        """Emit a signal in a thread-safe way from pynput's background thread.
+
+        Uses QMetaObject.invokeMethod with QueuedConnection to ensure the signal
+        emission happens in the main Qt event loop thread.
+
+        Args:
+            signal_name: Name of the signal to emit
+        """
+        signal = getattr(self, signal_name, None)
+        if signal:
+            # Use invokeMethod to safely emit from background thread
+            QMetaObject.invokeMethod(self, "_do_emit_" + signal_name, Qt.QueuedConnection)
+
+    def _do_emit_spotlight_toggle(self):
+        """Thread-safe emit helper for spotlight_toggle signal."""
+        print("Emitting spotlight_toggle signal (thread-safe)")
+        self.spotlight_toggle.emit()
+
+    def _do_emit_draw_blue(self):
+        """Thread-safe emit helper for draw_blue signal."""
+        print("Emitting draw_blue signal (thread-safe)")
+        self.draw_blue.emit()
+
+    def _do_emit_draw_red(self):
+        """Thread-safe emit helper for draw_red signal."""
+        print("Emitting draw_red signal (thread-safe)")
+        self.draw_red.emit()
+
+    def _do_emit_draw_yellow(self):
+        """Thread-safe emit helper for draw_yellow signal."""
+        print("Emitting draw_yellow signal (thread-safe)")
+        self.draw_yellow.emit()
+
+    def _do_emit_draw_green(self):
+        """Thread-safe emit helper for draw_green signal."""
+        print("Emitting draw_green signal (thread-safe)")
+        self.draw_green.emit()
+
+    def _do_emit_clear_screen(self):
+        """Thread-safe emit helper for clear_screen signal."""
+        print("Emitting clear_screen signal (thread-safe)")
+        self.clear_screen.emit()
+
+    def _do_emit_quit_app(self):
+        """Thread-safe emit helper for quit_app signal."""
+        print("Emitting quit_app signal (thread-safe)")
+        self.quit_app.emit()
+
     def _setup_hotkeys(self):
         """Set up hotkey mappings from configuration."""
         # Build hotkey dictionary for GlobalHotKeys
         hotkeys = {}
 
-        # Create wrapper functions to ensure proper signal emission
-        def make_callback(signal):
-            """Create a callback that emits the signal.
+        # Map action names to their corresponding emit method names
+        signal_map = {
+            "toggle_spotlight": "spotlight_toggle",
+            "draw_blue": "draw_blue",
+            "draw_red": "draw_red",
+            "draw_yellow": "draw_yellow",
+            "draw_green": "draw_green",
+            "clear_screen": "clear_screen",
+            "quit": "quit_app",
+        }
+
+        # Create wrapper functions to ensure proper thread-safe signal emission
+        def make_callback(signal_name):
+            """Create a callback that emits the signal thread-safely.
 
             Args:
-                signal: PyQt signal to emit
+                signal_name: Name of the signal to emit
 
             Returns:
                 Callback function
             """
             def callback():
-                print(f"Hotkey triggered! Emitting signal: {signal}")
-                signal.emit()
+                print(f"Hotkey triggered for {signal_name}!")
+                self._emit_signal_thread_safe(signal_name)
             return callback
 
-        actions = {
-            "toggle_spotlight": self.spotlight_toggle,
-            "draw_blue": self.draw_blue,
-            "draw_red": self.draw_red,
-            "draw_yellow": self.draw_yellow,
-            "draw_green": self.draw_green,
-            "clear_screen": self.clear_screen,
-            "quit": self.quit_app,
-        }
-
-        for action, signal in actions.items():
+        for action, signal_name in signal_map.items():
             shortcut = self.config.get_shortcut(action)
             if shortcut:
                 hotkey_str = self._convert_shortcut(shortcut)
-                hotkeys[hotkey_str] = make_callback(signal)
+                hotkeys[hotkey_str] = make_callback(signal_name)
                 print(f"Registered hotkey: {hotkey_str} for {action}")
 
         self.hotkeys = hotkeys
@@ -84,8 +134,10 @@ class HotkeyManager(QObject):
         if self.listener is None:
             try:
                 self.listener = keyboard.GlobalHotKeys(self.hotkeys)
+                # Set as daemon thread so it doesn't block application exit
+                self.listener.daemon = True
                 self.listener.start()
-                print("Hotkey listener started successfully")
+                print("Hotkey listener started successfully (daemon thread)")
             except Exception as e:
                 print(f"Error starting hotkey listener: {e}")
                 print("Registered hotkeys:", list(self.hotkeys.keys()))

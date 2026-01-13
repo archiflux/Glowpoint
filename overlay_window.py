@@ -39,7 +39,35 @@ class OverlayWindow(QWidget):
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setAttribute(Qt.WA_ShowWithoutActivating)
 
-        # Get geometry for all screens combined (virtual desktop)
+        # Calculate and set geometry to cover all screens
+        self._update_geometry()
+
+        # Connect to screen change signals to handle display reconfiguration
+        from PyQt5.QtWidgets import QApplication
+        app = QApplication.instance()
+        if app:
+            # Connect to screen added/removed signals
+            app.screenAdded.connect(self._on_screen_changed)
+            app.screenRemoved.connect(self._on_screen_changed)
+            # Connect to primary screen changed signal
+            app.primaryScreenChanged.connect(self._on_screen_changed)
+            # Also monitor for geometry changes on existing screens
+            for screen in app.screens():
+                screen.geometryChanged.connect(self._on_screen_changed)
+
+        self.show()
+
+    def _on_screen_changed(self, *args):
+        """Handle screen configuration changes (add/remove/resize).
+
+        Args:
+            *args: Signal arguments (varies by signal type)
+        """
+        print("[OverlayWindow] Screen configuration changed, updating geometry...")
+        self._update_geometry()
+
+    def _update_geometry(self):
+        """Calculate and set window geometry to cover all screens."""
         from PyQt5.QtWidgets import QApplication
         desktop = QApplication.desktop()
 
@@ -59,8 +87,6 @@ class OverlayWindow(QWidget):
         print(f"[OverlayWindow] Covering {desktop.screenCount()} screens: "
               f"{int(x_min)},{int(y_min)} {int(x_max - x_min)}x{int(y_max - y_min)}")
 
-        self.show()
-
     def _setup_cursor_timer(self):
         """Set up timer for cursor position updates."""
         self.cursor_timer = QTimer()
@@ -70,7 +96,10 @@ class OverlayWindow(QWidget):
     def _update_cursor_position(self):
         """Update cursor position for spotlight effect."""
         if self.spotlight_enabled:
-            self.last_cursor_pos = QCursor.pos()
+            # Convert global cursor position to widget-local coordinates
+            # QCursor.pos() returns global screen coordinates, but the painter
+            # uses widget-local coordinates, so we need to map them
+            self.last_cursor_pos = self.mapFromGlobal(QCursor.pos())
             self.update()
 
     def start_drawing(self, color: str):
@@ -97,6 +126,8 @@ class OverlayWindow(QWidget):
         )
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setAttribute(Qt.WA_ShowWithoutActivating)
+        # Refresh geometry to ensure we cover all current screens
+        self._update_geometry()
         print("[OverlayWindow] Showing with cross cursor")
         self.show()
         self.setCursor(Qt.CrossCursor)
@@ -124,6 +155,8 @@ class OverlayWindow(QWidget):
         )
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setAttribute(Qt.WA_ShowWithoutActivating)
+        # Refresh geometry to ensure we cover all current screens
+        self._update_geometry()
         self.show()
         self.unsetCursor()
         self.update()
