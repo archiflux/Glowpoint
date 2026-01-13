@@ -69,6 +69,8 @@ class OverlayWindow(QWidget):
         self.current_path = []
 
         # Make window accept mouse events
+        # Must hide before changing flags for them to take effect
+        self.hide()
         self.setWindowFlags(
             Qt.WindowStaysOnTopHint |
             Qt.FramelessWindowHint |
@@ -90,6 +92,8 @@ class OverlayWindow(QWidget):
         self.current_color = None
 
         # Make window transparent to mouse events again
+        # Must hide before changing flags for them to take effect
+        self.hide()
         self.setWindowFlags(
             Qt.WindowStaysOnTopHint |
             Qt.FramelessWindowHint |
