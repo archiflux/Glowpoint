@@ -63,13 +63,16 @@ class OverlayWindow(QWidget):
         Args:
             color: Color name (blue, red, yellow)
         """
+        print(f"[OverlayWindow] start_drawing called with color: {color}")
         self.drawing_active = True
         color_hex = self.config.get("drawing", "colors", color)
         self.current_color = color_hex
         self.current_path = []
+        print(f"[OverlayWindow] Color hex: {color_hex}, drawing_active: {self.drawing_active}")
 
         # Make window accept mouse events
         # Must hide before changing flags for them to take effect
+        print("[OverlayWindow] Hiding window before flag change")
         self.hide()
         self.setWindowFlags(
             Qt.WindowStaysOnTopHint |
@@ -78,8 +81,10 @@ class OverlayWindow(QWidget):
         )
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setAttribute(Qt.WA_ShowWithoutActivating)
+        print("[OverlayWindow] Showing fullscreen with cross cursor")
         self.showFullScreen()
         self.setCursor(Qt.CrossCursor)
+        print("[OverlayWindow] start_drawing complete")
 
     def stop_drawing(self):
         """Stop drawing mode."""

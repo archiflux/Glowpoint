@@ -147,14 +147,33 @@ Clear: {s('clear_screen')} | Quit: {s('quit')}"""
         Args:
             color: Color name (blue, red, yellow, green)
         """
+        print(f"_toggle_drawing called with color: {color}")
+        print(f"Current drawing_active: {self.overlay.drawing_active}, current color: {self.drawing_color}")
+
         if self.overlay.drawing_active and self.drawing_color == color:
             # Stop drawing if same color is pressed again
+            print(f"Stopping drawing mode")
             self.overlay.stop_drawing()
             self.drawing_color = None
+            self.tray_icon.showMessage(
+                "Drawing Mode OFF",
+                f"Drawing mode stopped.",
+                QSystemTrayIcon.Information,
+                1000
+            )
         else:
             # Start drawing with new color
+            print(f"Starting drawing mode with color: {color}")
             self.overlay.start_drawing(color)
             self.drawing_color = color
+            self.tray_icon.showMessage(
+                "Drawing Mode ON",
+                f"Drawing in {color.upper()} - Click and drag to draw. Press hotkey again to stop.",
+                QSystemTrayIcon.Information,
+                2000
+            )
+
+        print(f"New drawing_active: {self.overlay.drawing_active}")
 
     def _clear_screen(self):
         """Clear all drawings."""

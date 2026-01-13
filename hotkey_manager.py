@@ -44,24 +44,40 @@ class HotkeyManager(QObject):
         # Build hotkey dictionary for GlobalHotKeys
         hotkeys = {}
 
+        # Create wrapper functions to ensure proper signal emission
+        def make_callback(signal):
+            """Create a callback that emits the signal.
+
+            Args:
+                signal: PyQt signal to emit
+
+            Returns:
+                Callback function
+            """
+            def callback():
+                print(f"Hotkey triggered! Emitting signal: {signal}")
+                signal.emit()
+            return callback
+
         actions = {
-            "toggle_spotlight": self.spotlight_toggle.emit,
-            "draw_blue": self.draw_blue.emit,
-            "draw_red": self.draw_red.emit,
-            "draw_yellow": self.draw_yellow.emit,
-            "draw_green": self.draw_green.emit,
-            "clear_screen": self.clear_screen.emit,
-            "quit": self.quit_app.emit,
+            "toggle_spotlight": self.spotlight_toggle,
+            "draw_blue": self.draw_blue,
+            "draw_red": self.draw_red,
+            "draw_yellow": self.draw_yellow,
+            "draw_green": self.draw_green,
+            "clear_screen": self.clear_screen,
+            "quit": self.quit_app,
         }
 
-        for action, signal_func in actions.items():
+        for action, signal in actions.items():
             shortcut = self.config.get_shortcut(action)
             if shortcut:
                 hotkey_str = self._convert_shortcut(shortcut)
-                hotkeys[hotkey_str] = signal_func
+                hotkeys[hotkey_str] = make_callback(signal)
                 print(f"Registered hotkey: {hotkey_str} for {action}")
 
         self.hotkeys = hotkeys
+        print(f"Total hotkeys registered: {len(self.hotkeys)}")
 
     def start(self):
         """Start listening for global hotkeys."""
