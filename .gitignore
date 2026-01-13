@@ -27,3 +27,7 @@ ENV/
 *.swp
 *.swo
 *~
+
+# PyInstaller distribution
+*.spec.backup
+Glowpoint_Portable/

@@ -139,11 +139,27 @@ Example `config.json`:
 }
 ```
 
-## 📦 Creating a Standalone Executable
+## 📦 Creating a Distributable Version
 
-To create a single executable file that doesn't require Python installation:
+Want to share Glowpoint with colleagues who don't have Python installed? You can create a standalone executable!
 
-### Using PyInstaller
+### Quick Build (Windows)
+
+Simply run the build script:
+```bash
+build_dist.bat
+```
+
+This creates a `Glowpoint_Portable` folder containing:
+- `Glowpoint.exe` - Standalone executable (no Python required!)
+- `README.txt` - User instructions
+- `LICENSE` - License file
+
+**Distribution**: Copy the entire `Glowpoint_Portable` folder to any Windows computer and double-click `Glowpoint.exe` to run!
+
+### Manual Build (All Platforms)
+
+If you prefer manual control or are on Linux/Mac:
 
 1. **Install PyInstaller**:
    ```bash
@@ -152,7 +168,7 @@ To create a single executable file that doesn't require Python installation:
 
 2. **Create the executable**:
    ```bash
-   pyinstaller --onefile --windowed --name Glowpoint glowpoint.py
+   pyinstaller glowpoint.spec --clean
    ```
 
 3. **Find your executable**:
@@ -160,9 +176,7 @@ To create a single executable file that doesn't require Python installation:
    - On Windows: `dist/Glowpoint.exe`
    - On Linux/Mac: `dist/Glowpoint`
 
-4. **Distribute**:
-   - Copy the executable to any computer
-   - No Python or admin rights required!
+**For detailed distribution instructions, see [DISTRIBUTION.md](DISTRIBUTION.md)**
 
 ## 🖥️ Platform Support
 
