@@ -241,12 +241,15 @@ class SettingsDialog(QDialog):
         # Load spotlight settings
         radius = self.config.get("spotlight", "radius")
         self.radius_slider.setValue(radius)
+        self.radius_label.setText(f"{radius}px")
 
         ring_radius = self.config.get("spotlight", "ring_radius")
         self.ring_radius_slider.setValue(ring_radius)
+        self.ring_radius_label.setText(f"{ring_radius}px")
 
         opacity = int(self.config.get("spotlight", "opacity") * 100)
         self.opacity_slider.setValue(opacity)
+        self.opacity_label.setText(f"{opacity}%")
 
         self.spotlight_color = self.config.get("spotlight", "color")
         self._update_color_preview()
@@ -254,6 +257,7 @@ class SettingsDialog(QDialog):
         # Load drawing settings
         line_width = self.config.get("drawing", "line_width")
         self.line_width_slider.setValue(line_width)
+        self.line_width_label.setText(f"{line_width}px")
 
     def _save_settings(self):
         """Save settings to configuration."""
