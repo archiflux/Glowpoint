@@ -1,7 +1,7 @@
 """Global hotkey manager using pynput."""
 from pynput import keyboard
 from typing import Callable, Dict
-from PyQt5.QtCore import QObject, pyqtSignal, QMetaObject, Qt, Q_ARG
+from PyQt5.QtCore import QObject, pyqtSignal, pyqtSlot, QMetaObject, Qt, Q_ARG
 
 
 class HotkeyManager(QObject):
@@ -53,36 +53,43 @@ class HotkeyManager(QObject):
             # Use invokeMethod to safely emit from background thread
             QMetaObject.invokeMethod(self, "_do_emit_" + signal_name, Qt.QueuedConnection)
 
+    @pyqtSlot()
     def _do_emit_spotlight_toggle(self):
         """Thread-safe emit helper for spotlight_toggle signal."""
         print("Emitting spotlight_toggle signal (thread-safe)")
         self.spotlight_toggle.emit()
 
+    @pyqtSlot()
     def _do_emit_draw_blue(self):
         """Thread-safe emit helper for draw_blue signal."""
         print("Emitting draw_blue signal (thread-safe)")
         self.draw_blue.emit()
 
+    @pyqtSlot()
     def _do_emit_draw_red(self):
         """Thread-safe emit helper for draw_red signal."""
         print("Emitting draw_red signal (thread-safe)")
         self.draw_red.emit()
 
+    @pyqtSlot()
     def _do_emit_draw_yellow(self):
         """Thread-safe emit helper for draw_yellow signal."""
         print("Emitting draw_yellow signal (thread-safe)")
         self.draw_yellow.emit()
 
+    @pyqtSlot()
     def _do_emit_draw_green(self):
         """Thread-safe emit helper for draw_green signal."""
         print("Emitting draw_green signal (thread-safe)")
         self.draw_green.emit()
 
+    @pyqtSlot()
     def _do_emit_clear_screen(self):
         """Thread-safe emit helper for clear_screen signal."""
         print("Emitting clear_screen signal (thread-safe)")
         self.clear_screen.emit()
 
+    @pyqtSlot()
     def _do_emit_quit_app(self):
         """Thread-safe emit helper for quit_app signal."""
         print("Emitting quit_app signal (thread-safe)")
