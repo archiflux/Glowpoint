@@ -21,6 +21,7 @@ class OverlayWindow(QWidget):
         self.current_path = []
         self.current_line_width = None
         self.all_paths: List[Tuple[List[QPoint], str, int]] = []  # path, color, line_width
+        self.undo_stack: List[Tuple[List[QPoint], str, int]] = []  # Stack for redo
         self.spotlight_enabled = self.config.get("spotlight", "enabled")
         self.last_cursor_pos = QPoint(0, 0)
         self.last_line_endpoint = None  # For shift+click straight lines
@@ -157,6 +158,7 @@ class OverlayWindow(QWidget):
         if self.drawing_active and self.current_path:
             # Save the current path with its line width
             self.all_paths.append((self.current_path.copy(), self.current_color, self.current_line_width))
+            self.undo_stack.clear()  # Clear redo stack when new path is added
 
         self.drawing_active = False
         self.current_path = []
@@ -184,7 +186,30 @@ class OverlayWindow(QWidget):
         """Clear all drawings from the screen."""
         self.all_paths.clear()
         self.current_path.clear()
+        self.undo_stack.clear()
         self.update()
+
+    def undo(self):
+        """Undo the last drawn line."""
+        if self.all_paths:
+            # Move the last path to undo stack for potential redo
+            undone_path = self.all_paths.pop()
+            self.undo_stack.append(undone_path)
+            print(f"[OverlayWindow] Undo: removed path, {len(self.all_paths)} paths remaining")
+            self.update()
+            return True
+        return False
+
+    def redo(self):
+        """Redo the last undone line."""
+        if self.undo_stack:
+            # Restore the last undone path
+            restored_path = self.undo_stack.pop()
+            self.all_paths.append(restored_path)
+            print(f"[OverlayWindow] Redo: restored path, {len(self.all_paths)} paths total")
+            self.update()
+            return True
+        return False
 
     def toggle_spotlight(self):
         """Toggle cursor spotlight on/off."""
@@ -202,14 +227,19 @@ class OverlayWindow(QWidget):
             from PyQt5.QtCore import Qt as QtModifier
             # Check if shift is held for straight line mode
             if event.modifiers() & QtModifier.ShiftModifier and self.last_line_endpoint:
+                # Capture current line width at stroke start
+                self.current_line_width = self.config.get("drawing", "line_width")
                 # Draw straight line from last endpoint to current position
                 self.current_path = [self.last_line_endpoint, event.pos()]
-                self.all_paths.append((self.current_path.copy(), self.current_color))
+                self.all_paths.append((self.current_path.copy(), self.current_color, self.current_line_width))
+                self.undo_stack.clear()  # Clear redo stack when new path is added
                 self.last_line_endpoint = event.pos()
                 self.current_path = []
                 self.update()
             else:
                 # Normal freehand drawing
+                # Capture current line width at stroke start (so scroll wheel changes apply to future strokes)
+                self.current_line_width = self.config.get("drawing", "line_width")
                 self.current_path = [event.pos()]
                 self.last_line_endpoint = None
 
@@ -246,7 +276,8 @@ class OverlayWindow(QWidget):
         """
         if self.drawing_active and event.button() == Qt.LeftButton:
             if self.current_path and len(self.current_path) > 0:
-                self.all_paths.append((self.current_path.copy(), self.current_color))
+                self.all_paths.append((self.current_path.copy(), self.current_color, self.current_line_width))
+                self.undo_stack.clear()  # Clear redo stack when new path is added
                 # Save last point for shift+click straight lines
                 self.last_line_endpoint = self.current_path[-1]
                 self.current_path = []
@@ -259,9 +290,23 @@ class OverlayWindow(QWidget):
             event: Key event
         """
         from PyQt5.QtCore import Qt as QtKey
-        if self.drawing_active and event.key() == QtKey.Key_Escape:
-            print("[OverlayWindow] Escape key pressed, stopping drawing")
-            self.stop_drawing()
+
+        # Handle Ctrl+Z (undo) and Ctrl+Shift+Z (redo) - works in drawing mode
+        if self.drawing_active:
+            if event.key() == QtKey.Key_Z and event.modifiers() & QtKey.ControlModifier:
+                if event.modifiers() & QtKey.ShiftModifier:
+                    # Ctrl+Shift+Z = Redo
+                    print("[OverlayWindow] Ctrl+Shift+Z pressed, redo")
+                    self.redo()
+                else:
+                    # Ctrl+Z = Undo
+                    print("[OverlayWindow] Ctrl+Z pressed, undo")
+                    self.undo()
+                return
+            elif event.key() == QtKey.Key_Escape:
+                print("[OverlayWindow] Escape key pressed, stopping drawing")
+                self.stop_drawing()
+                return
 
     def wheelEvent(self, event):
         """Handle mouse wheel events for changing line thickness.
@@ -376,9 +421,10 @@ class OverlayWindow(QWidget):
             return path
 
         if len(points) == 1:
-            # Single point - create a visible dot
-            # The pen width in _draw_feathered_path will make it properly sized
-            path.addEllipse(points[0], 2, 2)
+            # Single point - create a tiny line segment that renders as a dot with round caps
+            # Using moveTo + lineTo to the same point creates a proper dot with RoundCap
+            path.moveTo(points[0])
+            path.lineTo(points[0])
             return path
 
         if len(points) == 2:
