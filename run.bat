@@ -51,5 +51,6 @@ if errorlevel 1 (
     )
 )
 
-REM Run Glowpoint without console window
-start "" pythonw glowpoint.py
+REM Run Glowpoint with Python
+echo Running Glowpoint with Python...
+python glowpoint.py

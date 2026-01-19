@@ -19,23 +19,13 @@ class OverlayWindow(QWidget):
         self.drawing_active = False
         self.current_color = None
         self.current_path = []
-        self.current_line_width = None
-        self.all_paths: List[Tuple[List[QPoint], str, int]] = []  # path, color, line_width
+        self.all_paths: List[Tuple[List[QPoint], str]] = []
         self.spotlight_enabled = self.config.get("spotlight", "enabled")
         self.last_cursor_pos = QPoint(0, 0)
         self.last_line_endpoint = None  # For shift+click straight lines
 
-        # Thickness preview
-        self.show_thickness_preview = False
-        self.thickness_preview_timer = None
-
-        # Shift+click straight line mode
-        self.shift_line_start = None
-        self.shift_line_preview = None
-
         self._setup_window()
         self._setup_cursor_timer()
-        self._setup_thickness_preview_timer()
 
     def _setup_window(self):
         """Set up window properties."""
@@ -103,22 +93,14 @@ class OverlayWindow(QWidget):
         self.cursor_timer.timeout.connect(self._update_cursor_position)
         self.cursor_timer.start(16)  # ~60 FPS
 
-    def _setup_thickness_preview_timer(self):
-        """Set up timer for thickness preview."""
-        self.thickness_preview_timer = QTimer()
-        self.thickness_preview_timer.timeout.connect(self._hide_thickness_preview)
-        self.thickness_preview_timer.setSingleShot(True)
-
     def _update_cursor_position(self):
         """Update cursor position for spotlight effect."""
         if self.spotlight_enabled:
-            self.last_cursor_pos = QCursor.pos()
-            self.update()  # Trigger repaint
-
-    def _hide_thickness_preview(self):
-        """Hide the thickness preview indicator."""
-        self.show_thickness_preview = False
-        self.update()
+            # Convert global cursor position to widget-local coordinates
+            # QCursor.pos() returns global screen coordinates, but the painter
+            # uses widget-local coordinates, so we need to map them
+            self.last_cursor_pos = self.mapFromGlobal(QCursor.pos())
+            self.update()
 
     def start_drawing(self, color: str):
         """Start drawing mode with specified color.
@@ -130,7 +112,6 @@ class OverlayWindow(QWidget):
         self.drawing_active = True
         color_hex = self.config.get("drawing", "colors", color)
         self.current_color = color_hex
-        self.current_line_width = self.config.get("drawing", "line_width")  # Capture current width
         self.current_path = []
         print(f"[OverlayWindow] Color hex: {color_hex}, drawing_active: {self.drawing_active}")
 
@@ -155,8 +136,8 @@ class OverlayWindow(QWidget):
     def stop_drawing(self):
         """Stop drawing mode."""
         if self.drawing_active and self.current_path:
-            # Save the current path with its line width
-            self.all_paths.append((self.current_path.copy(), self.current_color, self.current_line_width))
+            # Save the current path
+            self.all_paths.append((self.current_path.copy(), self.current_color))
 
         self.drawing_active = False
         self.current_path = []
@@ -220,23 +201,8 @@ class OverlayWindow(QWidget):
             event: Mouse event
         """
         if self.drawing_active and event.buttons() & Qt.LeftButton:
-            # Check if in shift+click straight line mode
-            if self.shift_line_start is not None:
-                self.shift_line_preview = event.pos()
-                self.update()
-            else:
-                # Add point decimation to reduce jaggedness on sharp corners
-                # Only add point if it's far enough from the last point
-                if len(self.current_path) > 0:
-                    last_point = self.current_path[-1]
-                    distance = ((event.pos().x() - last_point.x()) ** 2 +
-                               (event.pos().y() - last_point.y()) ** 2) ** 0.5
-                    # Increased threshold to 8 pixels for smoother lines
-                    if distance > 8:
-                        self.current_path.append(event.pos())
-                else:
-                    self.current_path.append(event.pos())
-                self.update()
+            self.current_path.append(event.pos())
+            self.update()
 
     def mouseReleaseEvent(self, event):
         """Handle mouse release events.
@@ -302,115 +268,23 @@ class OverlayWindow(QWidget):
         if self.spotlight_enabled:
             self._draw_spotlight(painter)
 
-        # Draw all saved paths with feathering/glow effect
-        for path, color, path_line_width in self.all_paths:
-            if len(path) >= 1:
-                smooth_path = self._create_smooth_path(path)
-                self._draw_feathered_path(painter, smooth_path, QColor(color), path_line_width)
+        # Draw all saved paths
+        line_width = self.config.get("drawing", "line_width")
+        for path, color in self.all_paths:
+            if len(path) > 1:
+                pen = QPen(QColor(color), line_width, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
+                painter.setPen(pen)
+
+                for i in range(len(path) - 1):
+                    painter.drawLine(path[i], path[i + 1])
 
         # Draw current path being drawn
-        if self.current_path and len(self.current_path) >= 1:
-            smooth_path = self._create_smooth_path(self.current_path)
-            self._draw_feathered_path(painter, smooth_path, QColor(self.current_color), self.current_line_width)
-
-        # Draw shift+click straight line preview
-        if self.shift_line_start is not None and self.shift_line_preview is not None:
-            preview_path = QPainterPath()
-            preview_path.moveTo(self.shift_line_start)
-            preview_path.lineTo(self.shift_line_preview)
-            self._draw_feathered_path(painter, preview_path, QColor(self.current_color), self.current_line_width)
-
-        # Draw thickness preview indicator
-        if self.show_thickness_preview:
-            cursor_pos = QCursor.pos()
-            current_line_width = self.config.get("drawing", "line_width")
-            radius = current_line_width / 2
-
-            # Draw dashed semi-transparent black ring
-            pen = QPen(QColor(0, 0, 0, 128), 2, Qt.DashLine)
+        if self.current_path and len(self.current_path) > 1:
+            pen = QPen(QColor(self.current_color), line_width, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
             painter.setPen(pen)
-            painter.setBrush(Qt.NoBrush)
-            painter.drawEllipse(cursor_pos, int(radius), int(radius))
 
-    def _draw_feathered_path(self, painter: QPainter, path: QPainterPath, color: QColor, line_width: int):
-        """Draw a path with feathering/glow effect.
-
-        Args:
-            painter: QPainter instance
-            path: Path to draw
-            color: Color of the line
-            line_width: Width of the line
-        """
-        # Draw outer glow layers (3 layers for subtle feathering)
-        glow_layers = [
-            (line_width * 2.2, 20),   # Outermost glow, very transparent
-            (line_width * 1.6, 40),   # Middle glow
-            (line_width * 1.2, 70),   # Inner glow
-        ]
-
-        for width_mult, alpha in glow_layers:
-            glow_color = QColor(color.red(), color.green(), color.blue(), alpha)
-            glow_pen = QPen(glow_color, width_mult, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
-            painter.setPen(glow_pen)
-            painter.setBrush(Qt.NoBrush)
-            painter.drawPath(path)
-
-        # Draw the main line on top
-        main_pen = QPen(color, line_width, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
-        painter.setPen(main_pen)
-        painter.setBrush(Qt.NoBrush)
-        painter.drawPath(path)
-
-    def _create_smooth_path(self, points: List[QPoint]) -> QPainterPath:
-        """Create a smooth curved path from a list of points using Catmull-Rom splines.
-
-        Args:
-            points: List of QPoint objects
-
-        Returns:
-            QPainterPath: Smoothed path
-        """
-        path = QPainterPath()
-
-        if len(points) < 1:
-            return path
-
-        if len(points) == 1:
-            # Single point - create a visible dot
-            # The pen width in _draw_feathered_path will make it properly sized
-            path.addEllipse(points[0], 2, 2)
-            return path
-
-        if len(points) == 2:
-            # Just draw a straight line for 2 points
-            path.moveTo(points[0])
-            path.lineTo(points[1])
-            return path
-
-        # Use Catmull-Rom spline for extra smooth curves
-        path.moveTo(points[0])
-
-        for i in range(len(points) - 1):
-            # Get control points for Catmull-Rom spline
-            p0 = points[max(0, i - 1)]
-            p1 = points[i]
-            p2 = points[min(len(points) - 1, i + 1)]
-            p3 = points[min(len(points) - 1, i + 2)]
-
-            # Calculate control points for cubic Bezier
-            # Using Catmull-Rom to Bezier conversion
-            cp1_x = p1.x() + (p2.x() - p0.x()) / 6.0
-            cp1_y = p1.y() + (p2.y() - p0.y()) / 6.0
-            cp2_x = p2.x() - (p3.x() - p1.x()) / 6.0
-            cp2_y = p2.y() - (p3.y() - p1.y()) / 6.0
-
-            path.cubicTo(
-                QPoint(int(cp1_x), int(cp1_y)),
-                QPoint(int(cp2_x), int(cp2_y)),
-                p2
-            )
-
-        return path
+            for i in range(len(self.current_path) - 1):
+                painter.drawLine(self.current_path[i], self.current_path[i + 1])
 
     def _draw_spotlight(self, painter: QPainter):
         """Draw spotlight effect around cursor.

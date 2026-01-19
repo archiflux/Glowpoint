@@ -41,9 +41,6 @@ class ShortcutRecorder(QLineEdit):
         if not self.recording:
             return
 
-        # Accept the event to prevent it from propagating to other handlers
-        event.accept()
-
         key = event.key()
         modifiers = event.modifiers()
 
@@ -62,18 +59,10 @@ class ShortcutRecorder(QLineEdit):
         if modifiers & Qt.MetaModifier:
             parts.append("<cmd>")
 
-        # Add main key - use key code for letters and numbers
-        key_text = None
-
-        # Check for letter keys (A-Z)
-        if Qt.Key_A <= key <= Qt.Key_Z:
-            key_text = chr(key).lower()
-        # Check for number keys (0-9)
-        elif Qt.Key_0 <= key <= Qt.Key_9:
-            key_text = chr(key)
-        # Try to get text from event (for other printable characters)
-        elif event.text() and event.text().isprintable():
-            key_text = event.text().lower()
+        # Add main key
+        key_text = event.text().lower()
+        if key_text and key_text.isprintable():
+            parts.append(key_text)
         else:
             # Special keys
             key_name = {
@@ -84,10 +73,7 @@ class ShortcutRecorder(QLineEdit):
                 Qt.Key_Enter: "enter",
             }.get(key)
             if key_name:
-                key_text = f"<{key_name}>"
-
-        if key_text:
-            parts.append(key_text)
+                parts.append(f"<{key_name}>")
 
         # Set the shortcut if we have at least one modifier and one key
         if len(parts) >= 2:
@@ -171,7 +157,7 @@ class SettingsDialog(QDialog):
 
         # Ring radius slider
         self.ring_radius_slider = QSlider(Qt.Horizontal)
-        self.ring_radius_slider.setMinimum(0)
+        self.ring_radius_slider.setMinimum(10)
         self.ring_radius_slider.setMaximum(100)
         self.ring_radius_slider.setTickPosition(QSlider.TicksBelow)
         self.ring_radius_slider.setTickInterval(10)
@@ -314,6 +300,9 @@ class SettingsDialog(QDialog):
         self.config.set(self.line_width_slider.value(), "drawing", "line_width")
 
         self.settings_changed.emit()
+        QMessageBox.information(self, "Settings Saved",
+                               "Settings have been saved successfully!\n\n"
+                               "Note: Restart the application for shortcut changes to take effect.")
         self.accept()
 
     def _choose_spotlight_color(self):
