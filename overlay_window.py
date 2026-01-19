@@ -34,6 +34,11 @@ class OverlayWindow(QWidget):
         self.shift_line_start = None
         self.shift_line_preview = None
 
+        # Shape drawing modes (Alt+click = circle, Ctrl+click = rect, Ctrl+Shift+click = arrow)
+        self.shape_mode = None  # None, "circle", "rect", "arrow"
+        self.shape_start = None  # Starting point for shape
+        self.shape_current = None  # Current mouse position for preview
+
         self._setup_window()
         self._setup_cursor_timer()
         self._setup_thickness_preview_timer()
@@ -115,6 +120,9 @@ class OverlayWindow(QWidget):
         if self.spotlight_enabled:
             self.last_cursor_pos = QCursor.pos()
             self.update()  # Trigger repaint
+        elif self.drawing_active:
+            # Still need to repaint when drawing is active (even without spotlight)
+            self.update()
 
     def _hide_thickness_preview(self):
         """Hide the thickness preview indicator."""
@@ -225,11 +233,34 @@ class OverlayWindow(QWidget):
         """
         if self.drawing_active and event.button() == Qt.LeftButton:
             from PyQt5.QtCore import Qt as QtModifier
-            # Check if shift is held for straight line mode
-            if event.modifiers() & QtModifier.ShiftModifier and self.last_line_endpoint:
-                # Capture current line width at stroke start
-                self.current_line_width = self.config.get("drawing", "line_width")
-                # Draw straight line from last endpoint to current position
+            # Capture current line width at stroke start
+            self.current_line_width = self.config.get("drawing", "line_width")
+
+            # Check modifiers for different drawing modes (order matters!)
+            has_ctrl = event.modifiers() & QtModifier.ControlModifier
+            has_shift = event.modifiers() & QtModifier.ShiftModifier
+            has_alt = event.modifiers() & QtModifier.AltModifier
+
+            if has_ctrl and has_shift and self.last_line_endpoint:
+                # Ctrl+Shift+Click = Arrow from last endpoint
+                self.shape_mode = "arrow"
+                self.shape_start = self.last_line_endpoint
+                self.shape_current = event.pos()
+                self.update()
+            elif has_ctrl:
+                # Ctrl+Click = Rectangle
+                self.shape_mode = "rect"
+                self.shape_start = event.pos()
+                self.shape_current = event.pos()
+                self.update()
+            elif has_alt:
+                # Alt+Click = Circle (centered on click)
+                self.shape_mode = "circle"
+                self.shape_start = event.pos()
+                self.shape_current = event.pos()
+                self.update()
+            elif has_shift and self.last_line_endpoint:
+                # Shift+Click = Straight line from last endpoint (instant commit)
                 self.current_path = [self.last_line_endpoint, event.pos()]
                 self.all_paths.append((self.current_path.copy(), self.current_color, self.current_line_width))
                 self.undo_stack.clear()  # Clear redo stack when new path is added
@@ -238,10 +269,10 @@ class OverlayWindow(QWidget):
                 self.update()
             else:
                 # Normal freehand drawing
-                # Capture current line width at stroke start (so scroll wheel changes apply to future strokes)
-                self.current_line_width = self.config.get("drawing", "line_width")
+                self.shape_mode = None
                 self.current_path = [event.pos()]
                 self.last_line_endpoint = None
+                self.update()  # Immediately show the dot on mouse press
 
     def mouseMoveEvent(self, event):
         """Handle mouse move events.
@@ -250,8 +281,12 @@ class OverlayWindow(QWidget):
             event: Mouse event
         """
         if self.drawing_active and event.buttons() & Qt.LeftButton:
+            # Check if in shape drawing mode
+            if self.shape_mode is not None:
+                self.shape_current = event.pos()
+                self.update()
             # Check if in shift+click straight line mode
-            if self.shift_line_start is not None:
+            elif self.shift_line_start is not None:
                 self.shift_line_preview = event.pos()
                 self.update()
             else:
@@ -275,13 +310,47 @@ class OverlayWindow(QWidget):
             event: Mouse event
         """
         if self.drawing_active and event.button() == Qt.LeftButton:
-            if self.current_path and len(self.current_path) > 0:
+            # Handle shape finalization
+            if self.shape_mode == "circle" and self.shape_start and self.shape_current:
+                # Create circle path points
+                circle_points = self._create_circle_points(self.shape_start, self.shape_current)
+                if circle_points:
+                    self.all_paths.append((circle_points, self.current_color, self.current_line_width))
+                    self.undo_stack.clear()
+                    self.last_line_endpoint = self.shape_current
+                self.shape_mode = None
+                self.shape_start = None
+                self.shape_current = None
+                self.update()
+            elif self.shape_mode == "rect" and self.shape_start and self.shape_current:
+                # Create rectangle path points
+                rect_points = self._create_rect_points(self.shape_start, self.shape_current)
+                if rect_points:
+                    self.all_paths.append((rect_points, self.current_color, self.current_line_width))
+                    self.undo_stack.clear()
+                    self.last_line_endpoint = self.shape_current
+                self.shape_mode = None
+                self.shape_start = None
+                self.shape_current = None
+                self.update()
+            elif self.shape_mode == "arrow" and self.shape_start and self.shape_current:
+                # Create arrow path points (line + arrowhead)
+                arrow_points = self._create_arrow_points(self.shape_start, self.shape_current)
+                if arrow_points:
+                    self.all_paths.append((arrow_points, self.current_color, self.current_line_width))
+                    self.undo_stack.clear()
+                    self.last_line_endpoint = self.shape_current
+                self.shape_mode = None
+                self.shape_start = None
+                self.shape_current = None
+                self.update()
+            elif self.current_path and len(self.current_path) > 0:
                 self.all_paths.append((self.current_path.copy(), self.current_color, self.current_line_width))
                 self.undo_stack.clear()  # Clear redo stack when new path is added
                 # Save last point for shift+click straight lines
                 self.last_line_endpoint = self.current_path[-1]
                 self.current_path = []
-            self.update()
+                self.update()
 
     def keyPressEvent(self, event):
         """Handle key press events.
@@ -350,13 +419,27 @@ class OverlayWindow(QWidget):
         # Draw all saved paths with feathering/glow effect
         for path, color, path_line_width in self.all_paths:
             if len(path) >= 1:
-                smooth_path = self._create_smooth_path(path)
-                self._draw_feathered_path(painter, smooth_path, QColor(color), path_line_width)
+                # Check if this is an arrow (special marker: 3 points with last being (-1, -1))
+                if len(path) == 3 and path[2].x() == -1 and path[2].y() == -1:
+                    self._draw_arrow(painter, path[0], path[1], QColor(color), path_line_width)
+                else:
+                    smooth_path = self._create_smooth_path(path)
+                    self._draw_feathered_path(painter, smooth_path, QColor(color), path_line_width)
 
         # Draw current path being drawn
         if self.current_path and len(self.current_path) >= 1:
             smooth_path = self._create_smooth_path(self.current_path)
             self._draw_feathered_path(painter, smooth_path, QColor(self.current_color), self.current_line_width)
+
+        # Draw shape previews
+        if self.shape_mode and self.shape_start and self.shape_current:
+            color = QColor(self.current_color)
+            if self.shape_mode == "circle":
+                self._draw_circle_preview(painter, self.shape_start, self.shape_current, color, self.current_line_width)
+            elif self.shape_mode == "rect":
+                self._draw_rect_preview(painter, self.shape_start, self.shape_current, color, self.current_line_width)
+            elif self.shape_mode == "arrow":
+                self._draw_arrow(painter, self.shape_start, self.shape_current, color, self.current_line_width)
 
         # Draw shift+click straight line preview
         if self.shift_line_start is not None and self.shift_line_preview is not None:
@@ -405,6 +488,124 @@ class OverlayWindow(QWidget):
         painter.setPen(main_pen)
         painter.setBrush(Qt.NoBrush)
         painter.drawPath(path)
+
+    def _draw_circle_preview(self, painter: QPainter, center: QPoint, edge: QPoint, color: QColor, line_width: int):
+        """Draw a circle preview centered on 'center' with radius to 'edge'.
+
+        Args:
+            painter: QPainter instance
+            center: Center point of circle
+            edge: Point on edge (determines radius)
+            color: Color of the circle
+            line_width: Width of the line
+        """
+        import math
+        dx = edge.x() - center.x()
+        dy = edge.y() - center.y()
+        radius = int(math.sqrt(dx * dx + dy * dy))
+
+        if radius < 2:
+            return
+
+        # Create circle path
+        path = QPainterPath()
+        path.addEllipse(center, radius, radius)
+        self._draw_feathered_path(painter, path, color, line_width)
+
+    def _draw_rect_preview(self, painter: QPainter, corner1: QPoint, corner2: QPoint, color: QColor, line_width: int):
+        """Draw a rectangle preview from corner1 to corner2.
+
+        Args:
+            painter: QPainter instance
+            corner1: First corner
+            corner2: Opposite corner
+            color: Color of the rectangle
+            line_width: Width of the line
+        """
+        from PyQt5.QtCore import QRectF
+
+        x1, y1 = corner1.x(), corner1.y()
+        x2, y2 = corner2.x(), corner2.y()
+
+        if abs(x2 - x1) < 2 and abs(y2 - y1) < 2:
+            return
+
+        # Create rectangle path
+        path = QPainterPath()
+        rect = QRectF(min(x1, x2), min(y1, y2), abs(x2 - x1), abs(y2 - y1))
+        path.addRect(rect)
+        self._draw_feathered_path(painter, path, color, line_width)
+
+    def _draw_arrow(self, painter: QPainter, start: QPoint, end: QPoint, color: QColor, line_width: int):
+        """Draw an arrow with line and filled arrowhead.
+
+        Args:
+            painter: QPainter instance
+            start: Start point of arrow
+            end: End point (tip of arrowhead)
+            color: Color of the arrow
+            line_width: Width of the line
+        """
+        import math
+
+        dx = end.x() - start.x()
+        dy = end.y() - start.y()
+        length = math.sqrt(dx * dx + dy * dy)
+
+        if length < 2:
+            return
+
+        # Normalize direction
+        nx = dx / length
+        ny = dy / length
+
+        # Arrowhead size proportional to line width (matching screenshot style)
+        head_length = max(line_width * 4, 15)
+        head_width = max(line_width * 2.5, 10)
+
+        # Calculate arrowhead base point
+        base_x = end.x() - nx * head_length
+        base_y = end.y() - ny * head_length
+
+        # Draw the line (from start to base of arrowhead) with feathering
+        line_path = QPainterPath()
+        line_path.moveTo(start)
+        line_path.lineTo(QPoint(int(base_x), int(base_y)))
+        self._draw_feathered_path(painter, line_path, color, line_width)
+
+        # Perpendicular direction for arrowhead width
+        perp_x = -ny
+        perp_y = nx
+
+        left_x = base_x + perp_x * head_width
+        left_y = base_y + perp_y * head_width
+        right_x = base_x - perp_x * head_width
+        right_y = base_y - perp_y * head_width
+
+        # Draw arrowhead with glow effect
+        head_path = QPainterPath()
+        head_path.moveTo(end)
+        head_path.lineTo(QPoint(int(left_x), int(left_y)))
+        head_path.lineTo(QPoint(int(right_x), int(right_y)))
+        head_path.closeSubpath()
+
+        # Draw glow layers for arrowhead
+        glow_layers = [
+            (2.2, 20),
+            (1.6, 40),
+            (1.2, 70),
+        ]
+
+        for scale, alpha in glow_layers:
+            glow_color = QColor(color.red(), color.green(), color.blue(), alpha)
+            painter.setPen(QPen(glow_color, line_width * scale, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
+            painter.setBrush(glow_color)
+            painter.drawPath(head_path)
+
+        # Draw solid arrowhead
+        painter.setPen(QPen(color, 1))
+        painter.setBrush(color)
+        painter.drawPath(head_path)
 
     def _create_smooth_path(self, points: List[QPoint]) -> QPainterPath:
         """Create a smooth curved path from a list of points using Catmull-Rom splines.
@@ -455,6 +656,177 @@ class OverlayWindow(QWidget):
                 QPoint(int(cp2_x), int(cp2_y)),
                 p2
             )
+
+        return path
+
+    def _create_circle_points(self, center: QPoint, edge: QPoint) -> List[QPoint]:
+        """Create points for a circle centered on 'center' with radius to 'edge'.
+
+        Args:
+            center: Center point of circle
+            edge: Point on edge of circle (determines radius)
+
+        Returns:
+            List of QPoint forming the circle
+        """
+        import math
+        dx = edge.x() - center.x()
+        dy = edge.y() - center.y()
+        radius = math.sqrt(dx * dx + dy * dy)
+
+        if radius < 2:
+            return []
+
+        # Generate points around the circle (more points for smoother circle)
+        num_points = max(36, int(radius / 2))
+        points = []
+        for i in range(num_points + 1):  # +1 to close the circle
+            angle = 2 * math.pi * i / num_points
+            x = center.x() + radius * math.cos(angle)
+            y = center.y() + radius * math.sin(angle)
+            points.append(QPoint(int(x), int(y)))
+
+        return points
+
+    def _create_rect_points(self, corner1: QPoint, corner2: QPoint) -> List[QPoint]:
+        """Create points for a rectangle from corner1 to corner2.
+
+        Args:
+            corner1: First corner of rectangle
+            corner2: Opposite corner of rectangle
+
+        Returns:
+            List of QPoint forming the rectangle
+        """
+        x1, y1 = corner1.x(), corner1.y()
+        x2, y2 = corner2.x(), corner2.y()
+
+        if abs(x2 - x1) < 2 and abs(y2 - y1) < 2:
+            return []
+
+        # Create rectangle points (5 points to close the shape)
+        return [
+            QPoint(x1, y1),
+            QPoint(x2, y1),
+            QPoint(x2, y2),
+            QPoint(x1, y2),
+            QPoint(x1, y1),  # Close the rectangle
+        ]
+
+    def _create_arrow_points(self, start: QPoint, end: QPoint) -> List[QPoint]:
+        """Create points for an arrow from start to end.
+
+        The arrow is a straight line with a simple arrowhead at the end,
+        scaled proportionally to the line thickness.
+
+        Args:
+            start: Start point of arrow
+            end: End point (tip of arrowhead)
+
+        Returns:
+            List of QPoint forming the arrow (special format for arrow rendering)
+        """
+        # Return special marker for arrow - we'll handle it in paintEvent
+        # Store as [start, end, marker] where marker indicates arrow type
+        return [start, end, QPoint(-1, -1)]  # Special marker for arrow
+
+    def _create_arrow_path(self, start: QPoint, end: QPoint, line_width: int) -> QPainterPath:
+        """Create a QPainterPath for an arrow with arrowhead.
+
+        Args:
+            start: Start point of arrow line
+            end: End point (tip of arrowhead)
+            line_width: Width of the line (used to scale arrowhead)
+
+        Returns:
+            QPainterPath for the complete arrow
+        """
+        import math
+        path = QPainterPath()
+
+        dx = end.x() - start.x()
+        dy = end.y() - start.y()
+        length = math.sqrt(dx * dx + dy * dy)
+
+        if length < 2:
+            return path
+
+        # Normalize direction
+        nx = dx / length
+        ny = dy / length
+
+        # Arrowhead size proportional to line width (like the screenshot)
+        head_length = max(line_width * 4, 15)
+        head_width = max(line_width * 2.5, 10)
+
+        # Calculate arrowhead base point (where head meets line)
+        base_x = end.x() - nx * head_length
+        base_y = end.y() - ny * head_length
+
+        # Calculate the two outer points of the arrowhead
+        perp_x = -ny  # Perpendicular direction
+        perp_y = nx
+
+        left_x = base_x + perp_x * head_width
+        left_y = base_y + perp_y * head_width
+        right_x = base_x - perp_x * head_width
+        right_y = base_y - perp_y * head_width
+
+        # Draw the line (from start to base of arrowhead)
+        path.moveTo(start)
+        path.lineTo(QPoint(int(base_x), int(base_y)))
+
+        # Draw the arrowhead as a filled triangle
+        # We'll return separate paths for line and head
+        return path
+
+    def _create_arrowhead_path(self, start: QPoint, end: QPoint, line_width: int) -> QPainterPath:
+        """Create a QPainterPath for just the arrowhead triangle.
+
+        Args:
+            start: Start point of arrow line
+            end: End point (tip of arrowhead)
+            line_width: Width of the line (used to scale arrowhead)
+
+        Returns:
+            QPainterPath for the arrowhead triangle
+        """
+        import math
+        path = QPainterPath()
+
+        dx = end.x() - start.x()
+        dy = end.y() - start.y()
+        length = math.sqrt(dx * dx + dy * dy)
+
+        if length < 2:
+            return path
+
+        # Normalize direction
+        nx = dx / length
+        ny = dy / length
+
+        # Arrowhead size proportional to line width
+        head_length = max(line_width * 4, 15)
+        head_width = max(line_width * 2.5, 10)
+
+        # Calculate arrowhead base point
+        base_x = end.x() - nx * head_length
+        base_y = end.y() - ny * head_length
+
+        # Perpendicular direction
+        perp_x = -ny
+        perp_y = nx
+
+        left_x = base_x + perp_x * head_width
+        left_y = base_y + perp_y * head_width
+        right_x = base_x - perp_x * head_width
+        right_y = base_y - perp_y * head_width
+
+        # Create arrowhead triangle
+        path.moveTo(end)
+        path.lineTo(QPoint(int(left_x), int(left_y)))
+        path.lineTo(QPoint(int(right_x), int(right_y)))
+        path.closeSubpath()
 
         return path
 
