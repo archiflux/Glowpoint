@@ -145,7 +145,7 @@ Clear: {s('clear_screen')} | Quit: {s('quit')}"""
         """Toggle drawing mode with specified color.
 
         Args:
-            color: Color name (blue, red, yellow, green)
+            color: Color name (blue, red, yellow)
         """
         print(f"_toggle_drawing called with color: {color}")
         print(f"Current drawing_active: {self.overlay.drawing_active}, current color: {self.drawing_color}")
@@ -187,9 +187,15 @@ Clear: {s('clear_screen')} | Quit: {s('quit')}"""
 
     def _show_settings(self):
         """Show settings dialog."""
+        # Pause hotkeys while settings dialog is open to prevent conflicts
+        self.hotkey_manager.stop()
+
         dialog = SettingsDialog(self.config, self.overlay)
         dialog.settings_changed.connect(self._on_settings_changed)
         dialog.exec_()
+
+        # Resume hotkeys after settings dialog closes
+        self.hotkey_manager.reload_hotkeys()
 
     def _on_settings_changed(self):
         """Handle settings changes."""

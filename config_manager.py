@@ -1,4 +1,4 @@
-"""Configuration manager for SpotCursor application."""
+"""Configuration manager for Glowpoint application."""
 import json
 import os
 from typing import Dict, Any
