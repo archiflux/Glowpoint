@@ -247,43 +247,54 @@ class SettingsDialog(QDialog):
 
     def _load_settings(self):
         """Load current settings into the dialog."""
-        # Block signals while loading to prevent triggering updates
+        # Block signals while loading to prevent _update_live_preview() from
+        # saving partial/default values during the loading process
         self.radius_slider.blockSignals(True)
         self.ring_radius_slider.blockSignals(True)
         self.opacity_slider.blockSignals(True)
         self.line_width_slider.blockSignals(True)
 
-        # Load shortcuts
-        for action, recorder in self.shortcut_inputs.items():
-            shortcut = self.config.get_shortcut(action)
-            recorder.setText(shortcut)
+        try:
+            # Load shortcuts
+            for action, recorder in self.shortcut_inputs.items():
+                shortcut = self.config.get_shortcut(action)
+                recorder.setText(shortcut)
 
-        # Load spotlight settings
-        radius = self.config.get("spotlight", "radius")
-        self.radius_slider.setValue(radius)
-        self.radius_label.setText(f"{radius}px")
+            # Load spotlight settings with validation
+            radius = self.config.get("spotlight", "radius")
+            if radius is None or not isinstance(radius, (int, float)):
+                radius = 80  # Default
+            self.radius_slider.setValue(int(radius))
+            self.radius_label.setText(f"{int(radius)}px")
 
-        ring_radius = self.config.get("spotlight", "ring_radius")
-        self.ring_radius_slider.setValue(ring_radius)
-        self.ring_radius_label.setText(f"{ring_radius}px")
+            ring_radius = self.config.get("spotlight", "ring_radius")
+            if ring_radius is None or not isinstance(ring_radius, (int, float)):
+                ring_radius = 40  # Default
+            self.ring_radius_slider.setValue(int(ring_radius))
+            self.ring_radius_label.setText(f"{int(ring_radius)}px")
 
-        opacity = int(self.config.get("spotlight", "opacity") * 100)
-        self.opacity_slider.setValue(opacity)
-        self.opacity_label.setText(f"{opacity}%")
+            opacity = self.config.get("spotlight", "opacity")
+            if opacity is None or not isinstance(opacity, (int, float)):
+                opacity = 0.7  # Default
+            opacity_percent = int(opacity * 100)
+            self.opacity_slider.setValue(opacity_percent)
+            self.opacity_label.setText(f"{opacity_percent}%")
 
-        self.spotlight_color = self.config.get("spotlight", "color")
-        self._update_color_preview()
+            self.spotlight_color = self.config.get("spotlight", "color") or "#FFFF64"
+            self._update_color_preview()
 
-        # Load drawing settings
-        line_width = self.config.get("drawing", "line_width")
-        self.line_width_slider.setValue(line_width)
-        self.line_width_label.setText(f"{line_width}px")
-
-        # Unblock signals
-        self.radius_slider.blockSignals(False)
-        self.ring_radius_slider.blockSignals(False)
-        self.opacity_slider.blockSignals(False)
-        self.line_width_slider.blockSignals(False)
+            # Load drawing settings
+            line_width = self.config.get("drawing", "line_width")
+            if line_width is None or not isinstance(line_width, (int, float)):
+                line_width = 4  # Default
+            self.line_width_slider.setValue(int(line_width))
+            self.line_width_label.setText(f"{int(line_width)}px")
+        finally:
+            # Always unblock signals
+            self.radius_slider.blockSignals(False)
+            self.ring_radius_slider.blockSignals(False)
+            self.opacity_slider.blockSignals(False)
+            self.line_width_slider.blockSignals(False)
 
     def _save_settings(self):
         """Save settings to configuration."""

@@ -147,14 +147,33 @@ Clear: {s('clear_screen')} | Quit: {s('quit')}"""
         Args:
             color: Color name (blue, red, yellow)
         """
+        print(f"_toggle_drawing called with color: {color}")
+        print(f"Current drawing_active: {self.overlay.drawing_active}, current color: {self.drawing_color}")
+
         if self.overlay.drawing_active and self.drawing_color == color:
             # Stop drawing if same color is pressed again
+            print(f"Stopping drawing mode")
             self.overlay.stop_drawing()
             self.drawing_color = None
+            self.tray_icon.showMessage(
+                "Drawing Mode OFF",
+                f"Drawing mode stopped.",
+                QSystemTrayIcon.Information,
+                1000
+            )
         else:
             # Start drawing with new color
+            print(f"Starting drawing mode with color: {color}")
             self.overlay.start_drawing(color)
             self.drawing_color = color
+            self.tray_icon.showMessage(
+                "Drawing Mode ON",
+                f"Drawing in {color.upper()} - Click and drag to draw. Press hotkey again to stop.",
+                QSystemTrayIcon.Information,
+                2000
+            )
+
+        print(f"New drawing_active: {self.overlay.drawing_active}")
 
     def _clear_screen(self):
         """Clear all drawings."""
@@ -193,27 +212,26 @@ Clear: {s('clear_screen')} | Quit: {s('quit')}"""
             None,
             "About Glowpoint",
             "<h2>Glowpoint</h2>"
-            "<p>Version 1.0.0</p>"
-            "<p>A cursor highlighter and screen drawing tool for presentations and screen sharing.</p>"
-            "<p><b>Features:</b></p>"
+            "<p><b>Version 1.0.0</b></p>"
+            "<p>A presentation tool that highlights your cursor and lets you draw annotations on screen.</p>"
+            "<p><b>What it does:</b></p>"
             "<ul>"
-            "<li>Customizable glowing spotlight</li>"
-            "<li>Draw on screen in multiple colors</li>"
-            "<li>Customizable keyboard shortcuts</li>"
-            "<li>Always-on-top annotations</li>"
-            "<li>Live preview of spotlight settings</li>"
+            "<li><b>Spotlight Mode:</b> Highlights your cursor with a glowing effect - perfect for focusing audience attention</li>"
+            "<li><b>Drawing Mode:</b> Draw freehand or straight lines (Shift+Click) in multiple colors directly on your screen</li>"
+            "<li><b>Multi-Monitor:</b> Works across all your displays simultaneously</li>"
             "</ul>"
-            "<p><b>Default Shortcuts:</b></p>"
+            "<p><b>Quick Tips:</b></p>"
             "<ul>"
-            f"<li>Toggle Spotlight: {self.config.get_shortcut('toggle_spotlight')}</li>"
-            f"<li>Draw Blue: {self.config.get_shortcut('draw_blue')}</li>"
-            f"<li>Draw Red: {self.config.get_shortcut('draw_red')}</li>"
-            f"<li>Draw Yellow: {self.config.get_shortcut('draw_yellow')}</li>"
-            f"<li>Draw Green: {self.config.get_shortcut('draw_green')}</li>"
-            f"<li>Clear Screen: {self.config.get_shortcut('clear_screen')}</li>"
-            f"<li>Quit: {self.config.get_shortcut('quit')}</li>"
+            "<li>Press <b>ESC</b> to stop drawing</li>"
+            "<li>Use <b>Mouse Wheel</b> to adjust line thickness while drawing</li>"
+            "<li>Hold <b>Shift+Click</b> to draw straight lines</li>"
+            "<li>All shortcuts customizable in Settings</li>"
             "</ul>"
-            "<p>Right-click the system tray icon to access settings or hover for quick shortcut reference.</p>"
+            "<p><b>Current Shortcuts:</b> "
+            f"{self.config.get_shortcut('toggle_spotlight')} (Spotlight), "
+            f"{self.config.get_shortcut('draw_blue')}/{self.config.get_shortcut('draw_red')}/"
+            f"{self.config.get_shortcut('draw_yellow')}/{self.config.get_shortcut('draw_green')} (Draw), "
+            f"{self.config.get_shortcut('clear_screen')} (Clear)</p>"
         )
 
     def _quit_application(self):

@@ -4,8 +4,13 @@ A lightweight cursor highlighter and screen drawing tool perfect for presentatio
 
 ## ✨ Features
 
-- **Spotlight Cursor Highlighting**: Draw attention to your cursor with a beautiful spotlight effect
-- **Screen Drawing**: Draw on your screen in multiple colors (blue, red, yellow)
+- **Spotlight Cursor Highlighting**: Draw attention to your cursor with a beautiful glowing spotlight effect
+- **Screen Drawing**: Draw freehand or straight lines (Shift+Click) in multiple colors (blue, red, yellow, green)
+- **Multi-Monitor Support**: Works seamlessly across all your displays
+- **Advanced Drawing Tools**:
+  - Press **ESC** to exit drawing mode
+  - **Mouse wheel** to adjust line thickness on the fly (1-20px)
+  - **Shift+Click** to draw perfect straight lines
 - **Global Keyboard Shortcuts**: Control everything with customizable keyboard shortcuts
 - **Always-on-Top Annotations**: Drawings stay visible over all windows
 - **Lightweight & Efficient**: Minimal resource usage, no admin rights required
@@ -61,10 +66,16 @@ A lightweight cursor highlighter and screen drawing tool perfect for presentatio
 ### How to Draw
 
 1. Press a drawing shortcut (e.g., **Ctrl+Shift+B** for blue)
-2. Click and drag your mouse to draw
-3. Release the mouse button to finish the line
-4. Press the same shortcut again to stop drawing mode
-5. Press **Ctrl+Shift+C** to clear all drawings
+2. **Freehand Drawing**: Click and drag your mouse to draw
+3. **Straight Lines**: Hold **Shift** and click to draw straight lines between points
+4. **Adjust Thickness**: Use **mouse wheel** to change line thickness (1-20px) while drawing
+5. **Exit Drawing**: Press **ESC** or the same color shortcut to stop drawing mode
+6. **Clear All**: Press **Ctrl+Shift+C** to clear all drawings
+
+**Pro Tips:**
+- Shift+Click multiple times to chain straight lines together
+- Mouse wheel changes are saved for your next drawing session
+- Works across all monitors - draw anywhere!
 
 ### Spotlight Mode
 
@@ -139,11 +150,27 @@ Example `config.json`:
 }
 ```
 
-## 📦 Creating a Standalone Executable
+## 📦 Creating a Distributable Version
 
-To create a single executable file that doesn't require Python installation:
+Want to share Glowpoint with colleagues who don't have Python installed? You can create a standalone executable!
 
-### Using PyInstaller
+### Quick Build (Windows)
+
+Simply run the build script:
+```bash
+build_dist.bat
+```
+
+This creates a `Glowpoint_Portable` folder containing:
+- `Glowpoint.exe` - Standalone executable (no Python required!)
+- `README.txt` - User instructions
+- `LICENSE` - License file
+
+**Distribution**: Copy the entire `Glowpoint_Portable` folder to any Windows computer and double-click `Glowpoint.exe` to run!
+
+### Manual Build (All Platforms)
+
+If you prefer manual control or are on Linux/Mac:
 
 1. **Install PyInstaller**:
    ```bash
@@ -152,7 +179,7 @@ To create a single executable file that doesn't require Python installation:
 
 2. **Create the executable**:
    ```bash
-   pyinstaller --onefile --windowed --name Glowpoint glowpoint.py
+   pyinstaller glowpoint.spec --clean
    ```
 
 3. **Find your executable**:
@@ -160,9 +187,7 @@ To create a single executable file that doesn't require Python installation:
    - On Windows: `dist/Glowpoint.exe`
    - On Linux/Mac: `dist/Glowpoint`
 
-4. **Distribute**:
-   - Copy the executable to any computer
-   - No Python or admin rights required!
+**For detailed distribution instructions, see [DISTRIBUTION.md](DISTRIBUTION.md)**
 
 ## 🖥️ Platform Support
 
@@ -239,11 +264,16 @@ This project is open source and available for personal and commercial use.
 
 ## 💡 Tips & Tricks
 
-1. **Performance**: Disable spotlight when not needed for better performance
-2. **Multiple Colors**: You can quickly switch between colors while drawing
-3. **Precision**: Use a lower line width for detailed annotations
-4. **Visibility**: Adjust spotlight opacity based on screen brightness
-5. **Quick Clear**: Keep the clear shortcut handy for fast cleanup
+1. **Straight Lines**: Hold Shift and click to create perfect straight lines - great for diagrams, arrows, and underlining
+2. **Line Thickness**: Scroll mouse wheel while drawing to adjust thickness on the fly (1-20px)
+3. **Quick Exit**: Press ESC anytime to instantly exit drawing mode
+4. **Multi-Monitor**: Works automatically across all displays - draw seamlessly from one screen to another
+5. **Performance**: Disable spotlight when not needed for better performance
+6. **Multiple Colors**: Quickly switch between colors while drawing - each keeps its own thickness setting
+7. **Precision**: Use lower line width (1-3px) for detailed annotations, higher (10-20px) for emphasis
+8. **Visibility**: Adjust spotlight opacity based on screen brightness and background
+9. **Chain Lines**: Shift+Click multiple times to create connected straight lines (perfect for flowcharts)
+10. **Quick Clear**: Keep the clear shortcut handy for fast cleanup between presentation sections
 
 ## ❓ Troubleshooting
 
@@ -251,6 +281,16 @@ This project is open source and available for personal and commercial use.
 - Make sure the application is running (check system tray)
 - Try restarting the application
 - Check for conflicting shortcuts with other applications
+- **Remote Desktop Users**: Global hotkeys may not work through some remote desktop solutions (Google Remote Desktop, some VNC clients). Solutions:
+  - Use Windows RDP (Remote Desktop Protocol) which usually works
+  - Run Glowpoint directly on the local machine
+  - Try using simpler shortcuts (single keys instead of complex combinations)
+- **Test hotkeys**: Run `python test_hotkeys.py` to diagnose hotkey detection issues
+
+### Drawing not working on all monitors
+- Glowpoint automatically detects and covers all monitors
+- If issues persist, try restarting the application
+- Check console output for multi-monitor detection messages
 
 ### Drawing is laggy
 - Close unnecessary applications
