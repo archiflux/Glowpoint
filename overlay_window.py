@@ -630,7 +630,7 @@ class OverlayWindow(QWidget):
                 self._draw_feathered_path(painter, painter_path, QColor(color), path_line_width, sharp_corners)
 
         # Draw current path being drawn
-        if self.current_path and len(self.current_path) >= 1:
+        if self.current_path and len(self.current_path) >= 1 and self.current_color:
             painter_path = self._create_path_for_mode(self.current_path, self.drawing_mode, self.current_line_width or 4)
             sharp_corners = (self.drawing_mode == DrawingMode.RECTANGLE)
             self._draw_feathered_path(painter, painter_path, QColor(self.current_color), self.current_line_width, sharp_corners)
