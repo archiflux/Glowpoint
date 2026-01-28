@@ -335,33 +335,37 @@ class OverlayWindow(QWidget):
             event: Key event
         """
         from PyQt5.QtCore import Qt as QtKey
+        key = event.key()
+        # Debug: print all key presses to diagnose issues
+        print(f"[OverlayWindow] Key pressed: {key} (hex: {hex(key)}), modifiers: {int(event.modifiers())}")
+
         if self.drawing_active:
-            if event.key() == QtKey.Key_Escape:
+            if key == QtKey.Key_Escape:
                 print("[OverlayWindow] Escape key pressed, stopping drawing")
                 self.stop_drawing()
-            elif event.key() == QtKey.Key_Z and event.modifiers() == (QtKey.ControlModifier | QtKey.ShiftModifier):
+            elif key == QtKey.Key_Z and event.modifiers() == (QtKey.ControlModifier | QtKey.ShiftModifier):
                 # Ctrl+Shift+Z = Redo
                 if self.redo():
                     print("[OverlayWindow] Redo performed")
                     self.mode_changed.emit("Redo")
-            elif event.key() == QtKey.Key_Z and event.modifiers() == QtKey.ControlModifier:
+            elif key == QtKey.Key_Z and event.modifiers() == QtKey.ControlModifier:
                 # Ctrl+Z = Undo
                 if self.undo():
                     print("[OverlayWindow] Undo performed")
                     self.mode_changed.emit("Undo")
-            elif event.key() == QtKey.Key_1:
+            elif key in (QtKey.Key_1, 0x01000051):  # Key_1 or numpad 1
                 self.drawing_mode = DrawingMode.FREEHAND
                 print(f"[OverlayWindow] Switched to FREEHAND mode")
                 self.mode_changed.emit("Freehand (1)")
-            elif event.key() == QtKey.Key_2:
+            elif key in (QtKey.Key_2, 0x01000052):  # Key_2 or numpad 2
                 self.drawing_mode = DrawingMode.LINE
                 print(f"[OverlayWindow] Switched to LINE mode")
                 self.mode_changed.emit("Line (2)")
-            elif event.key() == QtKey.Key_3:
+            elif key in (QtKey.Key_3, 0x01000053):  # Key_3 or numpad 3
                 self.drawing_mode = DrawingMode.RECTANGLE
                 print(f"[OverlayWindow] Switched to RECTANGLE mode")
                 self.mode_changed.emit("Rectangle (3)")
-            elif event.key() == QtKey.Key_4:
+            elif key in (QtKey.Key_4, 0x01000054):  # Key_4 or numpad 4
                 self.drawing_mode = DrawingMode.ARROW
                 print(f"[OverlayWindow] Switched to ARROW mode")
                 self.mode_changed.emit("Arrow (4)")
