@@ -47,6 +47,22 @@ class GlowpointApp:
         self.hotkey_manager.clear_screen.connect(self._clear_screen)
         self.hotkey_manager.quit_app.connect(self._quit_application)
 
+        # Connect overlay signals
+        self.overlay.mode_changed.connect(self._on_mode_changed)
+
+    def _on_mode_changed(self, mode_name: str):
+        """Handle drawing mode change notification.
+
+        Args:
+            mode_name: Name of the new drawing mode
+        """
+        self.tray_icon.showMessage(
+            "Drawing Mode",
+            f"Tool: {mode_name}",
+            QSystemTrayIcon.Information,
+            1000
+        )
+
     def _create_tray_icon(self):
         """Create system tray icon and menu."""
         # Create a simple icon
@@ -168,9 +184,11 @@ Clear: {s('clear_screen')} | Quit: {s('quit')}"""
             self.drawing_color = color
             self.tray_icon.showMessage(
                 "Drawing Mode ON",
-                f"Drawing in {color.upper()} - Click and drag to draw. Press hotkey again to stop.",
+                f"Drawing in {color.upper()}\n"
+                f"Tools: 1=Freehand 2=Line 3=Rectangle 4=Arrow\n"
+                f"Press color hotkey again to stop.",
                 QSystemTrayIcon.Information,
-                2000
+                2500
             )
 
         print(f"New drawing_active: {self.overlay.drawing_active}")
@@ -217,14 +235,15 @@ Clear: {s('clear_screen')} | Quit: {s('quit')}"""
             "<p><b>What it does:</b></p>"
             "<ul>"
             "<li><b>Spotlight Mode:</b> Highlights your cursor with a glowing effect - perfect for focusing audience attention</li>"
-            "<li><b>Drawing Mode:</b> Draw freehand or straight lines (Shift+Click) in multiple colors directly on your screen</li>"
+            "<li><b>Drawing Mode:</b> Multiple drawing tools: freehand, lines, rectangles, and arrows</li>"
             "<li><b>Multi-Monitor:</b> Works across all your displays simultaneously</li>"
             "</ul>"
             "<p><b>Quick Tips:</b></p>"
             "<ul>"
             "<li>Press <b>ESC</b> to stop drawing</li>"
             "<li>Use <b>Mouse Wheel</b> to adjust line thickness while drawing</li>"
-            "<li>Hold <b>Shift+Click</b> to draw straight lines</li>"
+            "<li>Press <b>1-4</b> to switch tools: 1=Freehand, 2=Line, 3=Rectangle, 4=Arrow</li>"
+            "<li>Hold <b>Shift+Click</b> in freehand mode to draw straight lines</li>"
             "<li>All shortcuts customizable in Settings</li>"
             "</ul>"
             "<p><b>Current Shortcuts:</b> "
