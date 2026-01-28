@@ -31,6 +31,13 @@ class ConfigManager:
                 "red": "#F44336",
                 "yellow": "#FFEB3B",
                 "green": "#4CAF50"
+            },
+            "tool_shortcuts": {
+                "freehand": "1",
+                "line": "2",
+                "rectangle": "3",
+                "arrow": "4",
+                "circle": "5"
             }
         }
     }

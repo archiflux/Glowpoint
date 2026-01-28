@@ -232,6 +232,31 @@ class SettingsDialog(QDialog):
         drawing_group.setLayout(drawing_layout)
         layout.addWidget(drawing_group)
 
+        # Tool shortcuts section
+        tools_group = QGroupBox("Drawing Tool Shortcuts")
+        tools_layout = QFormLayout()
+
+        tool_shortcut_labels = {
+            "freehand": "Freehand Tool",
+            "line": "Line Tool",
+            "rectangle": "Rectangle Tool",
+            "arrow": "Arrow Tool",
+            "circle": "Circle Tool"
+        }
+
+        self.tool_shortcut_inputs = {}
+        for tool, label in tool_shortcut_labels.items():
+            input_field = QLineEdit()
+            input_field.setMaxLength(1)
+            input_field.setFixedWidth(40)
+            input_field.setAlignment(Qt.AlignCenter)
+            input_field.setPlaceholderText("Key")
+            self.tool_shortcut_inputs[tool] = input_field
+            tools_layout.addRow(label + ":", input_field)
+
+        tools_group.setLayout(tools_layout)
+        layout.addWidget(tools_group)
+
         # Buttons
         button_layout = QHBoxLayout()
         save_button = QPushButton("Save")
@@ -289,6 +314,13 @@ class SettingsDialog(QDialog):
                 line_width = 4  # Default
             self.line_width_slider.setValue(int(line_width))
             self.line_width_label.setText(f"{int(line_width)}px")
+
+            # Load tool shortcuts
+            tool_shortcuts = self.config.get("drawing", "tool_shortcuts") or {}
+            default_shortcuts = {"freehand": "1", "line": "2", "rectangle": "3", "arrow": "4", "circle": "5"}
+            for tool, input_field in self.tool_shortcut_inputs.items():
+                shortcut = tool_shortcuts.get(tool, default_shortcuts.get(tool, ""))
+                input_field.setText(shortcut)
         finally:
             # Always unblock signals
             self.radius_slider.blockSignals(False)
@@ -312,6 +344,12 @@ class SettingsDialog(QDialog):
 
         # Save drawing settings
         self.config.set(self.line_width_slider.value(), "drawing", "line_width")
+
+        # Save tool shortcuts
+        for tool, input_field in self.tool_shortcut_inputs.items():
+            shortcut = input_field.text().strip()
+            if shortcut:
+                self.config.set(shortcut, "drawing", "tool_shortcuts", tool)
 
         self.settings_changed.emit()
         self.accept()
