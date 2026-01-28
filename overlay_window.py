@@ -173,6 +173,10 @@ class OverlayWindow(QWidget):
         print("[OverlayWindow] Showing with cross cursor")
         self.show()
         self.setCursor(Qt.CrossCursor)
+        # Grab keyboard focus so we receive key events (1-4 for tools, Escape, Ctrl+Z, etc.)
+        self.activateWindow()
+        self.raise_()
+        self.setFocus()
         print("[OverlayWindow] start_drawing complete")
 
     def stop_drawing(self):
@@ -335,6 +339,16 @@ class OverlayWindow(QWidget):
             if event.key() == QtKey.Key_Escape:
                 print("[OverlayWindow] Escape key pressed, stopping drawing")
                 self.stop_drawing()
+            elif event.key() == QtKey.Key_Z and event.modifiers() == (QtKey.ControlModifier | QtKey.ShiftModifier):
+                # Ctrl+Shift+Z = Redo
+                if self.redo():
+                    print("[OverlayWindow] Redo performed")
+                    self.mode_changed.emit("Redo")
+            elif event.key() == QtKey.Key_Z and event.modifiers() == QtKey.ControlModifier:
+                # Ctrl+Z = Undo
+                if self.undo():
+                    print("[OverlayWindow] Undo performed")
+                    self.mode_changed.emit("Undo")
             elif event.key() == QtKey.Key_1:
                 self.drawing_mode = DrawingMode.FREEHAND
                 print(f"[OverlayWindow] Switched to FREEHAND mode")
@@ -371,11 +385,11 @@ class OverlayWindow(QWidget):
                 # Scroll down - decrease thickness
                 new_width = max(current_width - 1, 1)
 
-            # Save new width
+            # Save new width and update current line width for future strokes
             if new_width != current_width:
                 self.config.set(new_width, "drawing", "line_width")
+                self.current_line_width = new_width  # Update for next stroke
                 print(f"[OverlayWindow] Line width changed to {new_width}px")
-                # Show notification would be nice but we don't have access to tray icon here
                 self.update()
 
     def paintEvent(self, event):
@@ -590,10 +604,9 @@ class OverlayWindow(QWidget):
             return path
 
         if len(points) == 1:
-            # Single point - create a tiny line segment that renders as a dot with round caps
-            # Using moveTo + lineTo to the same point creates a proper dot with RoundCap
-            path.moveTo(points[0])
-            path.lineTo(points[0])
+            # Single point - create a visible dot using ellipse
+            # This ensures the dot is visible immediately on click
+            path.addEllipse(points[0], 2, 2)
             return path
 
         if len(points) == 2:
