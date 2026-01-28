@@ -50,6 +50,9 @@ class OverlayWindow(QWidget):
         self.drawing_mode = DrawingMode.FREEHAND
         self.shape_start_pos = None  # Start position for shapes (rect, arrow, line)
 
+        # Undo/redo stack
+        self.undo_stack = []
+
         self._setup_window()
         self._setup_cursor_timer()
         self._setup_thickness_preview_timer()
@@ -400,16 +403,6 @@ class OverlayWindow(QWidget):
             painter_path = self._create_path_for_mode(self.current_path, self.drawing_mode)
             sharp_corners = (self.drawing_mode == DrawingMode.RECTANGLE)
             self._draw_feathered_path(painter, painter_path, QColor(self.current_color), self.current_line_width, sharp_corners)
-
-        # Draw shape previews
-        if self.shape_mode and self.shape_start and self.shape_current:
-            color = QColor(self.current_color)
-            if self.shape_mode == "circle":
-                self._draw_circle_preview(painter, self.shape_start, self.shape_current, color, self.current_line_width)
-            elif self.shape_mode == "rect":
-                self._draw_rect_preview(painter, self.shape_start, self.shape_current, color, self.current_line_width)
-            elif self.shape_mode == "arrow":
-                self._draw_arrow(painter, self.shape_start, self.shape_current, color, self.current_line_width)
 
         # Draw shift+click straight line preview
         if self.shift_line_start is not None and self.shift_line_preview is not None:
