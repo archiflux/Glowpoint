@@ -185,8 +185,8 @@ Clear: {s('clear_screen')} | Quit: {s('quit')}"""
             self.tray_icon.showMessage(
                 "Drawing Mode ON",
                 f"Drawing in {color.upper()}\n"
-                f"Tools: 1=Freehand 2=Line 3=Rectangle 4=Arrow\n"
-                f"Press color hotkey again to stop.",
+                f"Tools: 1=Freehand 2=Line 3=Rectangle 4=Arrow 5=Circle\n"
+                f"Press color hotkey again or ESC to stop.",
                 QSystemTrayIcon.Information,
                 2500
             )
@@ -235,14 +235,14 @@ Clear: {s('clear_screen')} | Quit: {s('quit')}"""
             "<p><b>What it does:</b></p>"
             "<ul>"
             "<li><b>Spotlight Mode:</b> Highlights your cursor with a glowing effect - perfect for focusing audience attention</li>"
-            "<li><b>Drawing Mode:</b> Multiple drawing tools: freehand, lines, rectangles, and arrows</li>"
+            "<li><b>Drawing Mode:</b> Multiple drawing tools: freehand, lines, rectangles, arrows, and circles</li>"
             "<li><b>Multi-Monitor:</b> Works across all your displays simultaneously</li>"
             "</ul>"
             "<p><b>Quick Tips:</b></p>"
             "<ul>"
             "<li>Press <b>ESC</b> to stop drawing</li>"
             "<li>Use <b>Mouse Wheel</b> to adjust line thickness while drawing</li>"
-            "<li>Press <b>1-4</b> to switch tools: 1=Freehand, 2=Line, 3=Rectangle, 4=Arrow</li>"
+            "<li>Press <b>1-5</b> to switch tools: 1=Freehand, 2=Line, 3=Rectangle, 4=Arrow, 5=Circle</li>"
             "<li>Hold <b>Shift+Click</b> in freehand mode to draw straight lines</li>"
             "<li>All shortcuts customizable in Settings</li>"
             "</ul>"

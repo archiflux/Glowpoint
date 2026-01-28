@@ -1,7 +1,7 @@
 """Transparent overlay window for cursor highlighting and drawing."""
-from PyQt5.QtWidgets import QWidget
-from PyQt5.QtCore import Qt, QPoint, QTimer, pyqtSignal, QRectF
-from PyQt5.QtGui import QPainter, QPen, QColor, QRadialGradient, QCursor, QPainterPath, QPolygonF
+from PyQt5.QtWidgets import QWidget, QHBoxLayout, QToolButton, QApplication
+from PyQt5.QtCore import Qt, QPoint, QTimer, pyqtSignal, QRectF, QSize
+from PyQt5.QtGui import QPainter, QPen, QColor, QRadialGradient, QCursor, QPainterPath, QPolygonF, QIcon, QPixmap, QFont
 from typing import List, Tuple, Optional
 from enum import Enum
 import math
@@ -13,6 +13,125 @@ class DrawingMode(Enum):
     LINE = 2
     RECTANGLE = 3
     ARROW = 4
+    CIRCLE = 5
+
+
+class DrawingToolbar(QWidget):
+    """Floating toolbar for drawing tool selection."""
+
+    # Signal emitted when a tool is selected
+    tool_selected = pyqtSignal(DrawingMode)
+
+    def __init__(self, config_manager, parent=None):
+        """Initialize the toolbar.
+
+        Args:
+            config_manager: Configuration manager for shortcuts
+            parent: Parent widget
+        """
+        super().__init__(parent)
+        self.config = config_manager
+        self.current_mode = DrawingMode.FREEHAND
+        self.buttons = {}
+
+        self._setup_ui()
+
+    def _setup_ui(self):
+        """Set up the toolbar UI."""
+        self.setWindowFlags(
+            Qt.WindowStaysOnTopHint |
+            Qt.FramelessWindowHint |
+            Qt.Tool
+        )
+        self.setAttribute(Qt.WA_TranslucentBackground)
+
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(8, 8, 8, 8)
+        layout.setSpacing(4)
+
+        # Tool definitions: (mode, symbol, name, config_key)
+        tools = [
+            (DrawingMode.FREEHAND, "✏", "Freehand", "freehand"),
+            (DrawingMode.LINE, "╱", "Line", "line"),
+            (DrawingMode.RECTANGLE, "▢", "Rectangle", "rectangle"),
+            (DrawingMode.ARROW, "➔", "Arrow", "arrow"),
+            (DrawingMode.CIRCLE, "○", "Circle", "circle"),
+        ]
+
+        for mode, symbol, name, config_key in tools:
+            shortcut = self.config.get("drawing", "tool_shortcuts", config_key) or config_key[0]
+            btn = QToolButton()
+            btn.setText(symbol)
+            btn.setFont(QFont("Segoe UI Symbol", 14))
+            btn.setFixedSize(36, 36)
+            btn.setToolTip(f"{name} (Press {shortcut})")
+            btn.setCheckable(True)
+            btn.setStyleSheet("""
+                QToolButton {
+                    background-color: rgba(50, 50, 50, 200);
+                    border: 1px solid rgba(100, 100, 100, 150);
+                    border-radius: 4px;
+                    color: white;
+                }
+                QToolButton:hover {
+                    background-color: rgba(80, 80, 80, 220);
+                    border: 1px solid rgba(150, 150, 150, 200);
+                }
+                QToolButton:checked {
+                    background-color: rgba(70, 130, 180, 220);
+                    border: 2px solid rgba(100, 180, 255, 255);
+                }
+            """)
+            btn.clicked.connect(lambda checked, m=mode: self._on_tool_clicked(m))
+            layout.addWidget(btn)
+            self.buttons[mode] = btn
+
+        # Set initial selection
+        self.buttons[DrawingMode.FREEHAND].setChecked(True)
+
+        self.adjustSize()
+
+    def _on_tool_clicked(self, mode: DrawingMode):
+        """Handle tool button click.
+
+        Args:
+            mode: The drawing mode selected
+        """
+        self.set_mode(mode)
+        self.tool_selected.emit(mode)
+
+    def set_mode(self, mode: DrawingMode):
+        """Set the current drawing mode.
+
+        Args:
+            mode: The drawing mode to set
+        """
+        self.current_mode = mode
+        for m, btn in self.buttons.items():
+            btn.setChecked(m == mode)
+
+    def position_at_bottom_right(self):
+        """Position the toolbar at bottom-right of the primary screen."""
+        screen = QApplication.primaryScreen()
+        if screen:
+            screen_geom = screen.availableGeometry()
+            x = screen_geom.right() - self.width() - 20
+            y = screen_geom.bottom() - self.height() - 20
+            self.move(x, y)
+
+    def paintEvent(self, event):
+        """Paint the toolbar background.
+
+        Args:
+            event: Paint event
+        """
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+
+        # Draw rounded rectangle background
+        painter.setBrush(QColor(30, 30, 30, 200))
+        painter.setPen(QPen(QColor(80, 80, 80, 150), 1))
+        painter.drawRoundedRect(self.rect().adjusted(1, 1, -1, -1), 8, 8)
 
 
 class OverlayWindow(QWidget):
@@ -49,6 +168,14 @@ class OverlayWindow(QWidget):
         # Drawing mode (freehand, line, rectangle, arrow)
         self.drawing_mode = DrawingMode.FREEHAND
         self.shape_start_pos = None  # Start position for shapes (rect, arrow, line)
+
+        # Undo/redo stack
+        self.undo_stack = []
+
+        # Drawing toolbar
+        self.toolbar = DrawingToolbar(self.config)
+        self.toolbar.tool_selected.connect(self._on_toolbar_tool_selected)
+        self.toolbar.hide()
 
         self._setup_window()
         self._setup_cursor_timer()
@@ -170,6 +297,17 @@ class OverlayWindow(QWidget):
         print("[OverlayWindow] Showing with cross cursor")
         self.show()
         self.setCursor(Qt.CrossCursor)
+        # Grab keyboard focus so we receive key events (1-4 for tools, Escape, Ctrl+Z, etc.)
+        self.activateWindow()
+        self.raise_()
+        self.setFocus()
+
+        # Show the toolbar
+        self.toolbar.set_mode(self.drawing_mode)
+        self.toolbar.position_at_bottom_right()
+        self.toolbar.show()
+        self.toolbar.raise_()  # Ensure toolbar is above overlay
+        self.toolbar.activateWindow()  # Give toolbar initial focus for clicking
         print("[OverlayWindow] start_drawing complete")
 
     def stop_drawing(self):
@@ -183,6 +321,9 @@ class OverlayWindow(QWidget):
         self.current_color = None
         self.last_line_endpoint = None
         self.shape_start_pos = None
+
+        # Hide the toolbar
+        self.toolbar.hide()
 
         # Make window transparent to mouse events again
         # Must hide before changing flags for them to take effect
@@ -236,12 +377,49 @@ class OverlayWindow(QWidget):
         self.config.set(self.spotlight_enabled, "spotlight", "enabled")
         self.update()
 
+    def _on_toolbar_tool_selected(self, mode: DrawingMode):
+        """Handle tool selection from toolbar.
+
+        Args:
+            mode: The drawing mode selected
+        """
+        self.drawing_mode = mode
+        print(f"[OverlayWindow] Tool selected from toolbar: {mode.name}")
+        # Refocus the overlay window to receive keyboard events
+        self.activateWindow()
+        self.setFocus()
+
+    def _is_point_in_toolbar(self, global_pos: QPoint) -> bool:
+        """Check if a global point is within the toolbar area.
+
+        Args:
+            global_pos: Global screen position
+
+        Returns:
+            True if point is within toolbar, False otherwise
+        """
+        if self.toolbar.isVisible():
+            toolbar_geom = self.toolbar.geometry()
+            return toolbar_geom.contains(global_pos)
+        return False
+
     def mousePressEvent(self, event):
         """Handle mouse press events.
 
         Args:
             event: Mouse event
         """
+        # Check if click is on the toolbar - if so, forward the click to toolbar
+        if self._is_point_in_toolbar(event.globalPos()):
+            # Find which button was clicked and trigger it
+            for mode, btn in self.toolbar.buttons.items():
+                btn_global_geom = btn.rect()
+                btn_global_geom.moveTopLeft(btn.mapToGlobal(btn.rect().topLeft()))
+                if btn_global_geom.contains(event.globalPos()):
+                    btn.click()
+                    return
+            return
+
         if self.drawing_active and event.button() == Qt.LeftButton:
             from PyQt5.QtCore import Qt as QtModifier
 
@@ -260,7 +438,7 @@ class OverlayWindow(QWidget):
                     self.last_line_endpoint = None
                     self.update()  # Draw dot immediately on click
 
-            elif self.drawing_mode in (DrawingMode.LINE, DrawingMode.RECTANGLE, DrawingMode.ARROW):
+            elif self.drawing_mode in (DrawingMode.LINE, DrawingMode.RECTANGLE, DrawingMode.ARROW, DrawingMode.CIRCLE):
                 # For shape tools, store start position
                 self.shape_start_pos = event.pos()
                 self.current_path = [event.pos()]
@@ -292,7 +470,7 @@ class OverlayWindow(QWidget):
                         self.current_path.append(event.pos())
                     self.update()
 
-            elif self.drawing_mode in (DrawingMode.LINE, DrawingMode.RECTANGLE, DrawingMode.ARROW):
+            elif self.drawing_mode in (DrawingMode.LINE, DrawingMode.RECTANGLE, DrawingMode.ARROW, DrawingMode.CIRCLE):
                 # For shape tools, update end position for preview
                 if self.shape_start_pos:
                     self.current_path = [self.shape_start_pos, event.pos()]
@@ -312,7 +490,7 @@ class OverlayWindow(QWidget):
                     self.last_line_endpoint = self.current_path[-1]
                     self.current_path = []
 
-            elif self.drawing_mode in (DrawingMode.LINE, DrawingMode.RECTANGLE, DrawingMode.ARROW):
+            elif self.drawing_mode in (DrawingMode.LINE, DrawingMode.RECTANGLE, DrawingMode.ARROW, DrawingMode.CIRCLE):
                 # Save the shape
                 if self.shape_start_pos and len(self.current_path) >= 2:
                     self.all_paths.append((self.current_path.copy(), self.current_color, self.current_line_width, self.drawing_mode))
@@ -321,6 +499,49 @@ class OverlayWindow(QWidget):
 
             self.update()
 
+    def _key_matches_shortcut(self, key: int, shortcut: str) -> bool:
+        """Check if a key code matches a shortcut string.
+
+        Args:
+            key: Qt key code
+            shortcut: Shortcut string (e.g., "1", "a", "F1")
+
+        Returns:
+            True if the key matches the shortcut
+        """
+        from PyQt5.QtCore import Qt as QtKey
+        if not shortcut:
+            return False
+
+        shortcut = shortcut.upper()
+
+        # Map shortcut strings to Qt key codes
+        key_map = {
+            "1": (QtKey.Key_1, 0x01000051),
+            "2": (QtKey.Key_2, 0x01000052),
+            "3": (QtKey.Key_3, 0x01000053),
+            "4": (QtKey.Key_4, 0x01000054),
+            "5": (QtKey.Key_5, 0x01000055),
+            "6": (QtKey.Key_6, 0x01000056),
+            "7": (QtKey.Key_7, 0x01000057),
+            "8": (QtKey.Key_8, 0x01000058),
+            "9": (QtKey.Key_9, 0x01000059),
+            "0": (QtKey.Key_0, 0x01000050),
+            "A": (QtKey.Key_A,), "B": (QtKey.Key_B,), "C": (QtKey.Key_C,),
+            "D": (QtKey.Key_D,), "E": (QtKey.Key_E,), "F": (QtKey.Key_F,),
+            "G": (QtKey.Key_G,), "H": (QtKey.Key_H,), "I": (QtKey.Key_I,),
+            "J": (QtKey.Key_J,), "K": (QtKey.Key_K,), "L": (QtKey.Key_L,),
+            "M": (QtKey.Key_M,), "N": (QtKey.Key_N,), "O": (QtKey.Key_O,),
+            "P": (QtKey.Key_P,), "Q": (QtKey.Key_Q,), "R": (QtKey.Key_R,),
+            "S": (QtKey.Key_S,), "T": (QtKey.Key_T,), "U": (QtKey.Key_U,),
+            "V": (QtKey.Key_V,), "W": (QtKey.Key_W,), "X": (QtKey.Key_X,),
+            "Y": (QtKey.Key_Y,), "Z": (QtKey.Key_Z,),
+        }
+
+        if shortcut in key_map:
+            return key in key_map[shortcut]
+        return False
+
     def keyPressEvent(self, event):
         """Handle key press events.
 
@@ -328,26 +549,42 @@ class OverlayWindow(QWidget):
             event: Key event
         """
         from PyQt5.QtCore import Qt as QtKey
+        key = event.key()
+        # Debug: print all key presses to diagnose issues
+        print(f"[OverlayWindow] Key pressed: {key} (hex: {hex(key)}), modifiers: {int(event.modifiers())}")
+
         if self.drawing_active:
-            if event.key() == QtKey.Key_Escape:
+            if key == QtKey.Key_Escape:
                 print("[OverlayWindow] Escape key pressed, stopping drawing")
                 self.stop_drawing()
-            elif event.key() == QtKey.Key_1:
-                self.drawing_mode = DrawingMode.FREEHAND
-                print(f"[OverlayWindow] Switched to FREEHAND mode")
-                self.mode_changed.emit("Freehand (1)")
-            elif event.key() == QtKey.Key_2:
-                self.drawing_mode = DrawingMode.LINE
-                print(f"[OverlayWindow] Switched to LINE mode")
-                self.mode_changed.emit("Line (2)")
-            elif event.key() == QtKey.Key_3:
-                self.drawing_mode = DrawingMode.RECTANGLE
-                print(f"[OverlayWindow] Switched to RECTANGLE mode")
-                self.mode_changed.emit("Rectangle (3)")
-            elif event.key() == QtKey.Key_4:
-                self.drawing_mode = DrawingMode.ARROW
-                print(f"[OverlayWindow] Switched to ARROW mode")
-                self.mode_changed.emit("Arrow (4)")
+            elif key == QtKey.Key_Z and event.modifiers() == (QtKey.ControlModifier | QtKey.ShiftModifier):
+                # Ctrl+Shift+Z = Redo
+                if self.redo():
+                    print("[OverlayWindow] Redo performed")
+                    self.mode_changed.emit("Redo")
+            elif key == QtKey.Key_Z and event.modifiers() == QtKey.ControlModifier:
+                # Ctrl+Z = Undo
+                if self.undo():
+                    print("[OverlayWindow] Undo performed")
+                    self.mode_changed.emit("Undo")
+            else:
+                # Check tool shortcuts from config
+                shortcuts = self.config.get("drawing", "tool_shortcuts") or {}
+                tool_map = [
+                    ("freehand", DrawingMode.FREEHAND, "Freehand"),
+                    ("line", DrawingMode.LINE, "Line"),
+                    ("rectangle", DrawingMode.RECTANGLE, "Rectangle"),
+                    ("arrow", DrawingMode.ARROW, "Arrow"),
+                    ("circle", DrawingMode.CIRCLE, "Circle"),
+                ]
+                for config_key, mode, name in tool_map:
+                    shortcut = shortcuts.get(config_key, "")
+                    if self._key_matches_shortcut(key, shortcut):
+                        self.drawing_mode = mode
+                        self.toolbar.set_mode(mode)
+                        print(f"[OverlayWindow] Switched to {mode.name} mode")
+                        self.mode_changed.emit(f"{name} ({shortcut})")
+                        break
 
     def wheelEvent(self, event):
         """Handle mouse wheel events for changing line thickness.
@@ -368,11 +605,14 @@ class OverlayWindow(QWidget):
                 # Scroll down - decrease thickness
                 new_width = max(current_width - 1, 1)
 
-            # Save new width
+            # Save new width and update current line width for future strokes
             if new_width != current_width:
                 self.config.set(new_width, "drawing", "line_width")
+                self.current_line_width = new_width  # Update for next stroke
                 print(f"[OverlayWindow] Line width changed to {new_width}px")
-                # Show notification would be nice but we don't have access to tray icon here
+                # Show thickness preview indicator for 1 second
+                self.show_thickness_preview = True
+                self.thickness_preview_timer.start(1000)  # Hide after 1 second
                 self.update()
 
     def paintEvent(self, event):
@@ -391,25 +631,15 @@ class OverlayWindow(QWidget):
         # Draw all saved paths with feathering/glow effect
         for path, color, path_line_width, mode in self.all_paths:
             if len(path) >= 1:
-                painter_path = self._create_path_for_mode(path, mode)
+                painter_path = self._create_path_for_mode(path, mode, path_line_width)
                 sharp_corners = (mode == DrawingMode.RECTANGLE)
                 self._draw_feathered_path(painter, painter_path, QColor(color), path_line_width, sharp_corners)
 
         # Draw current path being drawn
-        if self.current_path and len(self.current_path) >= 1:
-            painter_path = self._create_path_for_mode(self.current_path, self.drawing_mode)
+        if self.current_path and len(self.current_path) >= 1 and self.current_color:
+            painter_path = self._create_path_for_mode(self.current_path, self.drawing_mode, self.current_line_width or 4)
             sharp_corners = (self.drawing_mode == DrawingMode.RECTANGLE)
             self._draw_feathered_path(painter, painter_path, QColor(self.current_color), self.current_line_width, sharp_corners)
-
-        # Draw shape previews
-        if self.shape_mode and self.shape_start and self.shape_current:
-            color = QColor(self.current_color)
-            if self.shape_mode == "circle":
-                self._draw_circle_preview(painter, self.shape_start, self.shape_current, color, self.current_line_width)
-            elif self.shape_mode == "rect":
-                self._draw_rect_preview(painter, self.shape_start, self.shape_current, color, self.current_line_width)
-            elif self.shape_mode == "arrow":
-                self._draw_arrow(painter, self.shape_start, self.shape_current, color, self.current_line_width)
 
         # Draw shift+click straight line preview
         if self.shift_line_start is not None and self.shift_line_preview is not None:
@@ -418,17 +648,31 @@ class OverlayWindow(QWidget):
             preview_path.lineTo(self.shift_line_preview)
             self._draw_feathered_path(painter, preview_path, QColor(self.current_color), self.current_line_width)
 
-        # Draw thickness preview indicator
-        if self.show_thickness_preview:
+        # Draw thickness preview indicator (like Blender's brush size indicator)
+        if self.show_thickness_preview and self.drawing_active:
             cursor_pos = QCursor.pos()
-            current_line_width = self.config.get("drawing", "line_width")
-            radius = current_line_width / 2
+            current_line_width = self.config.get("drawing", "line_width") or 4
+            # Use the line width as diameter (radius = line_width / 2 for the actual stroke)
+            # But also show the glow extent (roughly 2.2x the line width)
+            inner_radius = current_line_width / 2
+            outer_radius = current_line_width * 1.1  # Show approximate glow extent
 
-            # Draw dashed semi-transparent black ring
-            pen = QPen(QColor(0, 0, 0, 128), 2, Qt.DashLine)
+            # Draw outer dashed circle (glow extent) - white with black outline for visibility
+            pen = QPen(QColor(255, 255, 255, 200), 1, Qt.DashLine)
             painter.setPen(pen)
             painter.setBrush(Qt.NoBrush)
-            painter.drawEllipse(cursor_pos, int(radius), int(radius))
+            painter.drawEllipse(cursor_pos, int(outer_radius), int(outer_radius))
+
+            # Draw inner solid circle (actual line width)
+            pen = QPen(QColor(255, 255, 255, 255), 2, Qt.SolidLine)
+            painter.setPen(pen)
+            painter.drawEllipse(cursor_pos, int(inner_radius), int(inner_radius))
+
+            # Draw text showing the size
+            painter.setPen(QColor(255, 255, 255, 255))
+            painter.setFont(QFont("Arial", 10, QFont.Bold))
+            text_pos = QPoint(cursor_pos.x() + int(outer_radius) + 5, cursor_pos.y() + 5)
+            painter.drawText(text_pos, f"{current_line_width}px")
 
     def _draw_feathered_path(self, painter: QPainter, path: QPainterPath, color: QColor, line_width: int, sharp_corners: bool = False):
         """Draw a path with feathering/glow effect.
@@ -597,10 +841,9 @@ class OverlayWindow(QWidget):
             return path
 
         if len(points) == 1:
-            # Single point - create a tiny line segment that renders as a dot with round caps
-            # Using moveTo + lineTo to the same point creates a proper dot with RoundCap
-            path.moveTo(points[0])
-            path.lineTo(points[0])
+            # Single point - create a visible dot using ellipse
+            # This ensures the dot is visible immediately on click
+            path.addEllipse(points[0], 2, 2)
             return path
 
         if len(points) == 2:
@@ -634,12 +877,13 @@ class OverlayWindow(QWidget):
 
         return path
 
-    def _create_path_for_mode(self, points: List[QPoint], mode: DrawingMode) -> QPainterPath:
+    def _create_path_for_mode(self, points: List[QPoint], mode: DrawingMode, line_width: int = 4) -> QPainterPath:
         """Create a path based on the drawing mode.
 
         Args:
             points: List of QPoint objects
             mode: The drawing mode
+            line_width: Line width for scaling (used by arrow)
 
         Returns:
             QPainterPath: Path for the given mode
@@ -651,7 +895,9 @@ class OverlayWindow(QWidget):
         elif mode == DrawingMode.RECTANGLE:
             return self._create_rectangle_path(points)
         elif mode == DrawingMode.ARROW:
-            return self._create_arrow_path(points)
+            return self._create_arrow_path(points, line_width)
+        elif mode == DrawingMode.CIRCLE:
+            return self._create_circle_path(points)
         else:
             return self._create_smooth_path(points)
 
@@ -709,11 +955,12 @@ class OverlayWindow(QWidget):
         path.addRect(x, y, w, h)
         return path
 
-    def _create_arrow_path(self, points: List[QPoint]) -> QPainterPath:
+    def _create_arrow_path(self, points: List[QPoint], line_width: int = 4) -> QPainterPath:
         """Create an arrow path from start to end point.
 
         Args:
             points: List of QPoint objects (expects 2 points: start and end)
+            line_width: Line width for scaling the arrowhead
 
         Returns:
             QPainterPath: Arrow path with arrowhead
@@ -733,8 +980,8 @@ class OverlayWindow(QWidget):
         path.moveTo(p1)
         path.lineTo(p2)
 
-        # Calculate arrowhead
-        arrow_size = 15  # Size of the arrowhead
+        # Calculate arrowhead - scale with line width
+        arrow_size = max(line_width * 3, 12)  # Scale with line width, minimum 12
         angle = math.atan2(p2.y() - p1.y(), p2.x() - p1.x())
 
         # Calculate arrowhead points
@@ -754,6 +1001,38 @@ class OverlayWindow(QWidget):
         path.moveTo(p2)
         path.lineTo(int(right_x), int(right_y))
 
+        return path
+
+    def _create_circle_path(self, points: List[QPoint]) -> QPainterPath:
+        """Create a circle path from center to edge point.
+
+        Args:
+            points: List of QPoint objects (expects 2 points: center and edge)
+
+        Returns:
+            QPainterPath: Circle path
+        """
+        path = QPainterPath()
+
+        if len(points) < 1:
+            return path
+
+        if len(points) == 1:
+            # Single point - create a visible dot
+            path.addEllipse(points[0], 2, 2)
+            return path
+
+        # Create circle from center to edge point
+        center, edge = points[0], points[-1]
+        dx = edge.x() - center.x()
+        dy = edge.y() - center.y()
+        radius = int(math.sqrt(dx * dx + dy * dy))
+
+        if radius < 2:
+            path.addEllipse(center, 2, 2)
+            return path
+
+        path.addEllipse(center, radius, radius)
         return path
 
     def _draw_spotlight(self, painter: QPainter):
