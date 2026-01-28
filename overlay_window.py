@@ -409,9 +409,15 @@ class OverlayWindow(QWidget):
         Args:
             event: Mouse event
         """
-        # Ignore clicks on the toolbar
+        # Check if click is on the toolbar - if so, forward the click to toolbar
         if self._is_point_in_toolbar(event.globalPos()):
-            event.ignore()
+            # Find which button was clicked and trigger it
+            for mode, btn in self.toolbar.buttons.items():
+                btn_global_geom = btn.rect()
+                btn_global_geom.moveTopLeft(btn.mapToGlobal(btn.rect().topLeft()))
+                if btn_global_geom.contains(event.globalPos()):
+                    btn.click()
+                    return
             return
 
         if self.drawing_active and event.button() == Qt.LeftButton:
