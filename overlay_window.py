@@ -1,12 +1,25 @@
 """Transparent overlay window for cursor highlighting and drawing."""
 from PyQt5.QtWidgets import QWidget
-from PyQt5.QtCore import Qt, QPoint, QTimer, pyqtSignal
-from PyQt5.QtGui import QPainter, QPen, QColor, QRadialGradient, QCursor, QPainterPath
+from PyQt5.QtCore import Qt, QPoint, QTimer, pyqtSignal, QRectF
+from PyQt5.QtGui import QPainter, QPen, QColor, QRadialGradient, QCursor, QPainterPath, QPolygonF
 from typing import List, Tuple, Optional
+from enum import Enum
+import math
+
+
+class DrawingMode(Enum):
+    """Drawing tool modes."""
+    FREEHAND = 1
+    LINE = 2
+    RECTANGLE = 3
+    ARROW = 4
 
 
 class OverlayWindow(QWidget):
     """Transparent overlay window for drawing and cursor highlighting."""
+
+    # Signal emitted when drawing mode changes
+    mode_changed = pyqtSignal(str)  # Emits mode name
 
     def __init__(self, config_manager):
         """Initialize overlay window.
@@ -20,7 +33,7 @@ class OverlayWindow(QWidget):
         self.current_color = None
         self.current_path = []
         self.current_line_width = None
-        self.all_paths: List[Tuple[List[QPoint], str, int]] = []  # path, color, line_width
+        self.all_paths: List[Tuple[List[QPoint], str, int, DrawingMode]] = []  # path, color, line_width, mode
         self.spotlight_enabled = self.config.get("spotlight", "enabled")
         self.last_cursor_pos = QPoint(0, 0)
         self.last_line_endpoint = None  # For shift+click straight lines
@@ -32,6 +45,10 @@ class OverlayWindow(QWidget):
         # Shift+click straight line mode
         self.shift_line_start = None
         self.shift_line_preview = None
+
+        # Drawing mode (freehand, line, rectangle, arrow)
+        self.drawing_mode = DrawingMode.FREEHAND
+        self.shape_start_pos = None  # Start position for shapes (rect, arrow, line)
 
         self._setup_window()
         self._setup_cursor_timer()
@@ -155,13 +172,14 @@ class OverlayWindow(QWidget):
     def stop_drawing(self):
         """Stop drawing mode."""
         if self.drawing_active and self.current_path:
-            # Save the current path with its line width
-            self.all_paths.append((self.current_path.copy(), self.current_color, self.current_line_width))
+            # Save the current path with its line width and mode
+            self.all_paths.append((self.current_path.copy(), self.current_color, self.current_line_width, self.drawing_mode))
 
         self.drawing_active = False
         self.current_path = []
         self.current_color = None
         self.last_line_endpoint = None
+        self.shape_start_pos = None
 
         # Make window transparent to mouse events again
         # Must hide before changing flags for them to take effect
@@ -200,18 +218,27 @@ class OverlayWindow(QWidget):
         """
         if self.drawing_active and event.button() == Qt.LeftButton:
             from PyQt5.QtCore import Qt as QtModifier
-            # Check if shift is held for straight line mode
-            if event.modifiers() & QtModifier.ShiftModifier and self.last_line_endpoint:
-                # Draw straight line from last endpoint to current position
-                self.current_path = [self.last_line_endpoint, event.pos()]
-                self.all_paths.append((self.current_path.copy(), self.current_color))
-                self.last_line_endpoint = event.pos()
-                self.current_path = []
-                self.update()
-            else:
-                # Normal freehand drawing
+
+            if self.drawing_mode == DrawingMode.FREEHAND:
+                # Check if shift is held for straight line mode
+                if event.modifiers() & QtModifier.ShiftModifier and self.last_line_endpoint:
+                    # Draw straight line from last endpoint to current position
+                    self.current_path = [self.last_line_endpoint, event.pos()]
+                    self.all_paths.append((self.current_path.copy(), self.current_color, self.current_line_width, DrawingMode.LINE))
+                    self.last_line_endpoint = event.pos()
+                    self.current_path = []
+                    self.update()
+                else:
+                    # Normal freehand drawing
+                    self.current_path = [event.pos()]
+                    self.last_line_endpoint = None
+                    self.update()  # Draw dot immediately on click
+
+            elif self.drawing_mode in (DrawingMode.LINE, DrawingMode.RECTANGLE, DrawingMode.ARROW):
+                # For shape tools, store start position
+                self.shape_start_pos = event.pos()
                 self.current_path = [event.pos()]
-                self.last_line_endpoint = None
+                self.update()  # Draw dot immediately on click
 
     def mouseMoveEvent(self, event):
         """Handle mouse move events.
@@ -220,23 +247,30 @@ class OverlayWindow(QWidget):
             event: Mouse event
         """
         if self.drawing_active and event.buttons() & Qt.LeftButton:
-            # Check if in shift+click straight line mode
-            if self.shift_line_start is not None:
-                self.shift_line_preview = event.pos()
-                self.update()
-            else:
-                # Add point decimation to reduce jaggedness on sharp corners
-                # Only add point if it's far enough from the last point
-                if len(self.current_path) > 0:
-                    last_point = self.current_path[-1]
-                    distance = ((event.pos().x() - last_point.x()) ** 2 +
-                               (event.pos().y() - last_point.y()) ** 2) ** 0.5
-                    # Increased threshold to 8 pixels for smoother lines
-                    if distance > 8:
-                        self.current_path.append(event.pos())
+            if self.drawing_mode == DrawingMode.FREEHAND:
+                # Check if in shift+click straight line mode
+                if self.shift_line_start is not None:
+                    self.shift_line_preview = event.pos()
+                    self.update()
                 else:
-                    self.current_path.append(event.pos())
-                self.update()
+                    # Add point decimation to reduce jaggedness on sharp corners
+                    # Only add point if it's far enough from the last point
+                    if len(self.current_path) > 0:
+                        last_point = self.current_path[-1]
+                        distance = ((event.pos().x() - last_point.x()) ** 2 +
+                                   (event.pos().y() - last_point.y()) ** 2) ** 0.5
+                        # Increased threshold to 8 pixels for smoother lines
+                        if distance > 8:
+                            self.current_path.append(event.pos())
+                    else:
+                        self.current_path.append(event.pos())
+                    self.update()
+
+            elif self.drawing_mode in (DrawingMode.LINE, DrawingMode.RECTANGLE, DrawingMode.ARROW):
+                # For shape tools, update end position for preview
+                if self.shape_start_pos:
+                    self.current_path = [self.shape_start_pos, event.pos()]
+                    self.update()
 
     def mouseReleaseEvent(self, event):
         """Handle mouse release events.
@@ -245,11 +279,20 @@ class OverlayWindow(QWidget):
             event: Mouse event
         """
         if self.drawing_active and event.button() == Qt.LeftButton:
-            if self.current_path and len(self.current_path) > 0:
-                self.all_paths.append((self.current_path.copy(), self.current_color))
-                # Save last point for shift+click straight lines
-                self.last_line_endpoint = self.current_path[-1]
+            if self.drawing_mode == DrawingMode.FREEHAND:
+                if self.current_path and len(self.current_path) > 0:
+                    self.all_paths.append((self.current_path.copy(), self.current_color, self.current_line_width, DrawingMode.FREEHAND))
+                    # Save last point for shift+click straight lines
+                    self.last_line_endpoint = self.current_path[-1]
+                    self.current_path = []
+
+            elif self.drawing_mode in (DrawingMode.LINE, DrawingMode.RECTANGLE, DrawingMode.ARROW):
+                # Save the shape
+                if self.shape_start_pos and len(self.current_path) >= 2:
+                    self.all_paths.append((self.current_path.copy(), self.current_color, self.current_line_width, self.drawing_mode))
+                self.shape_start_pos = None
                 self.current_path = []
+
             self.update()
 
     def keyPressEvent(self, event):
@@ -259,9 +302,26 @@ class OverlayWindow(QWidget):
             event: Key event
         """
         from PyQt5.QtCore import Qt as QtKey
-        if self.drawing_active and event.key() == QtKey.Key_Escape:
-            print("[OverlayWindow] Escape key pressed, stopping drawing")
-            self.stop_drawing()
+        if self.drawing_active:
+            if event.key() == QtKey.Key_Escape:
+                print("[OverlayWindow] Escape key pressed, stopping drawing")
+                self.stop_drawing()
+            elif event.key() == QtKey.Key_1:
+                self.drawing_mode = DrawingMode.FREEHAND
+                print(f"[OverlayWindow] Switched to FREEHAND mode")
+                self.mode_changed.emit("Freehand (1)")
+            elif event.key() == QtKey.Key_2:
+                self.drawing_mode = DrawingMode.LINE
+                print(f"[OverlayWindow] Switched to LINE mode")
+                self.mode_changed.emit("Line (2)")
+            elif event.key() == QtKey.Key_3:
+                self.drawing_mode = DrawingMode.RECTANGLE
+                print(f"[OverlayWindow] Switched to RECTANGLE mode")
+                self.mode_changed.emit("Rectangle (3)")
+            elif event.key() == QtKey.Key_4:
+                self.drawing_mode = DrawingMode.ARROW
+                print(f"[OverlayWindow] Switched to ARROW mode")
+                self.mode_changed.emit("Arrow (4)")
 
     def wheelEvent(self, event):
         """Handle mouse wheel events for changing line thickness.
@@ -303,15 +363,17 @@ class OverlayWindow(QWidget):
             self._draw_spotlight(painter)
 
         # Draw all saved paths with feathering/glow effect
-        for path, color, path_line_width in self.all_paths:
+        for path, color, path_line_width, mode in self.all_paths:
             if len(path) >= 1:
-                smooth_path = self._create_smooth_path(path)
-                self._draw_feathered_path(painter, smooth_path, QColor(color), path_line_width)
+                painter_path = self._create_path_for_mode(path, mode)
+                sharp_corners = (mode == DrawingMode.RECTANGLE)
+                self._draw_feathered_path(painter, painter_path, QColor(color), path_line_width, sharp_corners)
 
         # Draw current path being drawn
         if self.current_path and len(self.current_path) >= 1:
-            smooth_path = self._create_smooth_path(self.current_path)
-            self._draw_feathered_path(painter, smooth_path, QColor(self.current_color), self.current_line_width)
+            painter_path = self._create_path_for_mode(self.current_path, self.drawing_mode)
+            sharp_corners = (self.drawing_mode == DrawingMode.RECTANGLE)
+            self._draw_feathered_path(painter, painter_path, QColor(self.current_color), self.current_line_width, sharp_corners)
 
         # Draw shift+click straight line preview
         if self.shift_line_start is not None and self.shift_line_preview is not None:
@@ -332,7 +394,7 @@ class OverlayWindow(QWidget):
             painter.setBrush(Qt.NoBrush)
             painter.drawEllipse(cursor_pos, int(radius), int(radius))
 
-    def _draw_feathered_path(self, painter: QPainter, path: QPainterPath, color: QColor, line_width: int):
+    def _draw_feathered_path(self, painter: QPainter, path: QPainterPath, color: QColor, line_width: int, sharp_corners: bool = False):
         """Draw a path with feathering/glow effect.
 
         Args:
@@ -340,7 +402,12 @@ class OverlayWindow(QWidget):
             path: Path to draw
             color: Color of the line
             line_width: Width of the line
+            sharp_corners: If True, use MiterJoin for sharp corners (for rectangles)
         """
+        # Use MiterJoin for sharp corners (rectangles), RoundJoin for curves
+        join_style = Qt.MiterJoin if sharp_corners else Qt.RoundJoin
+        cap_style = Qt.SquareCap if sharp_corners else Qt.RoundCap
+
         # Draw outer glow layers (3 layers for subtle feathering)
         glow_layers = [
             (line_width * 2.2, 20),   # Outermost glow, very transparent
@@ -350,13 +417,13 @@ class OverlayWindow(QWidget):
 
         for width_mult, alpha in glow_layers:
             glow_color = QColor(color.red(), color.green(), color.blue(), alpha)
-            glow_pen = QPen(glow_color, width_mult, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
+            glow_pen = QPen(glow_color, width_mult, Qt.SolidLine, cap_style, join_style)
             painter.setPen(glow_pen)
             painter.setBrush(Qt.NoBrush)
             painter.drawPath(path)
 
         # Draw the main line on top
-        main_pen = QPen(color, line_width, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
+        main_pen = QPen(color, line_width, Qt.SolidLine, cap_style, join_style)
         painter.setPen(main_pen)
         painter.setBrush(Qt.NoBrush)
         painter.drawPath(path)
@@ -409,6 +476,128 @@ class OverlayWindow(QWidget):
                 QPoint(int(cp2_x), int(cp2_y)),
                 p2
             )
+
+        return path
+
+    def _create_path_for_mode(self, points: List[QPoint], mode: DrawingMode) -> QPainterPath:
+        """Create a path based on the drawing mode.
+
+        Args:
+            points: List of QPoint objects
+            mode: The drawing mode
+
+        Returns:
+            QPainterPath: Path for the given mode
+        """
+        if mode == DrawingMode.FREEHAND:
+            return self._create_smooth_path(points)
+        elif mode == DrawingMode.LINE:
+            return self._create_line_path(points)
+        elif mode == DrawingMode.RECTANGLE:
+            return self._create_rectangle_path(points)
+        elif mode == DrawingMode.ARROW:
+            return self._create_arrow_path(points)
+        else:
+            return self._create_smooth_path(points)
+
+    def _create_line_path(self, points: List[QPoint]) -> QPainterPath:
+        """Create a straight line path (no smoothing).
+
+        Args:
+            points: List of QPoint objects (expects 2 points)
+
+        Returns:
+            QPainterPath: Straight line path
+        """
+        path = QPainterPath()
+
+        if len(points) < 1:
+            return path
+
+        if len(points) == 1:
+            # Single point - create a visible dot
+            path.addEllipse(points[0], 2, 2)
+            return path
+
+        # Draw straight line from first to last point
+        path.moveTo(points[0])
+        path.lineTo(points[-1])
+        return path
+
+    def _create_rectangle_path(self, points: List[QPoint]) -> QPainterPath:
+        """Create a rectangle path with sharp corners (no smoothing).
+
+        Args:
+            points: List of QPoint objects (expects 2 points: start and end)
+
+        Returns:
+            QPainterPath: Rectangle path
+        """
+        path = QPainterPath()
+
+        if len(points) < 1:
+            return path
+
+        if len(points) == 1:
+            # Single point - create a visible dot
+            path.addEllipse(points[0], 2, 2)
+            return path
+
+        # Create rectangle from two corner points
+        p1, p2 = points[0], points[-1]
+        x = min(p1.x(), p2.x())
+        y = min(p1.y(), p2.y())
+        w = abs(p2.x() - p1.x())
+        h = abs(p2.y() - p1.y())
+
+        # Use addRect for sharp corners (not addRoundedRect)
+        path.addRect(x, y, w, h)
+        return path
+
+    def _create_arrow_path(self, points: List[QPoint]) -> QPainterPath:
+        """Create an arrow path from start to end point.
+
+        Args:
+            points: List of QPoint objects (expects 2 points: start and end)
+
+        Returns:
+            QPainterPath: Arrow path with arrowhead
+        """
+        path = QPainterPath()
+
+        if len(points) < 1:
+            return path
+
+        if len(points) == 1:
+            # Single point - create a visible dot
+            path.addEllipse(points[0], 2, 2)
+            return path
+
+        # Draw line from first to last point
+        p1, p2 = points[0], points[-1]
+        path.moveTo(p1)
+        path.lineTo(p2)
+
+        # Calculate arrowhead
+        arrow_size = 15  # Size of the arrowhead
+        angle = math.atan2(p2.y() - p1.y(), p2.x() - p1.x())
+
+        # Calculate arrowhead points
+        arrow_angle = math.pi / 6  # 30 degrees
+
+        # Left side of arrowhead
+        left_x = p2.x() - arrow_size * math.cos(angle - arrow_angle)
+        left_y = p2.y() - arrow_size * math.sin(angle - arrow_angle)
+
+        # Right side of arrowhead
+        right_x = p2.x() - arrow_size * math.cos(angle + arrow_angle)
+        right_y = p2.y() - arrow_size * math.sin(angle + arrow_angle)
+
+        # Draw arrowhead lines
+        path.moveTo(p2)
+        path.lineTo(int(left_x), int(left_y))
+        path.moveTo(p2)
+        path.lineTo(int(right_x), int(right_y))
 
         return path
 
