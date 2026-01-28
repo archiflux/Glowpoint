@@ -306,6 +306,8 @@ class OverlayWindow(QWidget):
         self.toolbar.set_mode(self.drawing_mode)
         self.toolbar.position_at_bottom_right()
         self.toolbar.show()
+        self.toolbar.raise_()  # Ensure toolbar is above overlay
+        self.toolbar.activateWindow()  # Give toolbar initial focus for clicking
         print("[OverlayWindow] start_drawing complete")
 
     def stop_drawing(self):
@@ -387,12 +389,31 @@ class OverlayWindow(QWidget):
         self.activateWindow()
         self.setFocus()
 
+    def _is_point_in_toolbar(self, global_pos: QPoint) -> bool:
+        """Check if a global point is within the toolbar area.
+
+        Args:
+            global_pos: Global screen position
+
+        Returns:
+            True if point is within toolbar, False otherwise
+        """
+        if self.toolbar.isVisible():
+            toolbar_geom = self.toolbar.geometry()
+            return toolbar_geom.contains(global_pos)
+        return False
+
     def mousePressEvent(self, event):
         """Handle mouse press events.
 
         Args:
             event: Mouse event
         """
+        # Ignore clicks on the toolbar
+        if self._is_point_in_toolbar(event.globalPos()):
+            event.ignore()
+            return
+
         if self.drawing_active and event.button() == Qt.LeftButton:
             from PyQt5.QtCore import Qt as QtModifier
 
@@ -583,6 +604,9 @@ class OverlayWindow(QWidget):
                 self.config.set(new_width, "drawing", "line_width")
                 self.current_line_width = new_width  # Update for next stroke
                 print(f"[OverlayWindow] Line width changed to {new_width}px")
+                # Show thickness preview indicator for 1 second
+                self.show_thickness_preview = True
+                self.thickness_preview_timer.start(1000)  # Hide after 1 second
                 self.update()
 
     def paintEvent(self, event):
@@ -601,13 +625,13 @@ class OverlayWindow(QWidget):
         # Draw all saved paths with feathering/glow effect
         for path, color, path_line_width, mode in self.all_paths:
             if len(path) >= 1:
-                painter_path = self._create_path_for_mode(path, mode)
+                painter_path = self._create_path_for_mode(path, mode, path_line_width)
                 sharp_corners = (mode == DrawingMode.RECTANGLE)
                 self._draw_feathered_path(painter, painter_path, QColor(color), path_line_width, sharp_corners)
 
         # Draw current path being drawn
         if self.current_path and len(self.current_path) >= 1:
-            painter_path = self._create_path_for_mode(self.current_path, self.drawing_mode)
+            painter_path = self._create_path_for_mode(self.current_path, self.drawing_mode, self.current_line_width or 4)
             sharp_corners = (self.drawing_mode == DrawingMode.RECTANGLE)
             self._draw_feathered_path(painter, painter_path, QColor(self.current_color), self.current_line_width, sharp_corners)
 
@@ -618,17 +642,31 @@ class OverlayWindow(QWidget):
             preview_path.lineTo(self.shift_line_preview)
             self._draw_feathered_path(painter, preview_path, QColor(self.current_color), self.current_line_width)
 
-        # Draw thickness preview indicator
-        if self.show_thickness_preview:
+        # Draw thickness preview indicator (like Blender's brush size indicator)
+        if self.show_thickness_preview and self.drawing_active:
             cursor_pos = QCursor.pos()
-            current_line_width = self.config.get("drawing", "line_width")
-            radius = current_line_width / 2
+            current_line_width = self.config.get("drawing", "line_width") or 4
+            # Use the line width as diameter (radius = line_width / 2 for the actual stroke)
+            # But also show the glow extent (roughly 2.2x the line width)
+            inner_radius = current_line_width / 2
+            outer_radius = current_line_width * 1.1  # Show approximate glow extent
 
-            # Draw dashed semi-transparent black ring
-            pen = QPen(QColor(0, 0, 0, 128), 2, Qt.DashLine)
+            # Draw outer dashed circle (glow extent) - white with black outline for visibility
+            pen = QPen(QColor(255, 255, 255, 200), 1, Qt.DashLine)
             painter.setPen(pen)
             painter.setBrush(Qt.NoBrush)
-            painter.drawEllipse(cursor_pos, int(radius), int(radius))
+            painter.drawEllipse(cursor_pos, int(outer_radius), int(outer_radius))
+
+            # Draw inner solid circle (actual line width)
+            pen = QPen(QColor(255, 255, 255, 255), 2, Qt.SolidLine)
+            painter.setPen(pen)
+            painter.drawEllipse(cursor_pos, int(inner_radius), int(inner_radius))
+
+            # Draw text showing the size
+            painter.setPen(QColor(255, 255, 255, 255))
+            painter.setFont(QFont("Arial", 10, QFont.Bold))
+            text_pos = QPoint(cursor_pos.x() + int(outer_radius) + 5, cursor_pos.y() + 5)
+            painter.drawText(text_pos, f"{current_line_width}px")
 
     def _draw_feathered_path(self, painter: QPainter, path: QPainterPath, color: QColor, line_width: int, sharp_corners: bool = False):
         """Draw a path with feathering/glow effect.
@@ -833,12 +871,13 @@ class OverlayWindow(QWidget):
 
         return path
 
-    def _create_path_for_mode(self, points: List[QPoint], mode: DrawingMode) -> QPainterPath:
+    def _create_path_for_mode(self, points: List[QPoint], mode: DrawingMode, line_width: int = 4) -> QPainterPath:
         """Create a path based on the drawing mode.
 
         Args:
             points: List of QPoint objects
             mode: The drawing mode
+            line_width: Line width for scaling (used by arrow)
 
         Returns:
             QPainterPath: Path for the given mode
@@ -850,7 +889,7 @@ class OverlayWindow(QWidget):
         elif mode == DrawingMode.RECTANGLE:
             return self._create_rectangle_path(points)
         elif mode == DrawingMode.ARROW:
-            return self._create_arrow_path(points)
+            return self._create_arrow_path(points, line_width)
         elif mode == DrawingMode.CIRCLE:
             return self._create_circle_path(points)
         else:
@@ -910,11 +949,12 @@ class OverlayWindow(QWidget):
         path.addRect(x, y, w, h)
         return path
 
-    def _create_arrow_path(self, points: List[QPoint]) -> QPainterPath:
+    def _create_arrow_path(self, points: List[QPoint], line_width: int = 4) -> QPainterPath:
         """Create an arrow path from start to end point.
 
         Args:
             points: List of QPoint objects (expects 2 points: start and end)
+            line_width: Line width for scaling the arrowhead
 
         Returns:
             QPainterPath: Arrow path with arrowhead
@@ -934,8 +974,8 @@ class OverlayWindow(QWidget):
         path.moveTo(p1)
         path.lineTo(p2)
 
-        # Calculate arrowhead
-        arrow_size = 15  # Size of the arrowhead
+        # Calculate arrowhead - scale with line width
+        arrow_size = max(line_width * 3, 12)  # Scale with line width, minimum 12
         angle = math.atan2(p2.y() - p1.y(), p2.x() - p1.x())
 
         # Calculate arrowhead points
