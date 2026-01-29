@@ -231,6 +231,21 @@ Clear: {s('clear_screen')} | Quit: {s('quit')}"""
         dialog = AboutDialog(self.config)
         dialog.exec_()
 
+    def _quit_application(self):
+        """Quit the application."""
+        self.hotkey_manager.stop()
+        self.tray_icon.hide()
+        self.overlay.close()
+        self.app.quit()
+
+    def run(self):
+        """Run the application.
+
+        Returns:
+            int: Exit code
+        """
+        return self.app.exec_()
+
 
 class AboutDialog(QDialog):
     """Modern styled About dialog."""
@@ -372,21 +387,6 @@ class AboutDialog(QDialog):
         btn_layout.addStretch()
         btn_layout.addWidget(close_btn)
         layout.addLayout(btn_layout)
-
-    def _quit_application(self):
-        """Quit the application."""
-        self.hotkey_manager.stop()
-        self.tray_icon.hide()
-        self.overlay.close()
-        self.app.quit()
-
-    def run(self):
-        """Run the application.
-
-        Returns:
-            int: Exit code
-        """
-        return self.app.exec_()
 
 
 def main():
