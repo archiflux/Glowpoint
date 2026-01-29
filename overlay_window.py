@@ -221,24 +221,32 @@ class OverlayWindow(QWidget):
         self._update_geometry()
 
     def _update_geometry(self):
-        """Calculate and set window geometry to cover all screens."""
-        from PyQt5.QtWidgets import QApplication
-        desktop = QApplication.desktop()
+        """Calculate and set window geometry to cover all screens.
 
-        # Calculate bounding rectangle that covers all screens
+        Uses availableGeometry() to respect system reserved areas like
+        taskbars and docks, preventing the overlay from interfering with
+        the Windows 11 taskbar behavior.
+        """
+        from PyQt5.QtWidgets import QApplication
+        app = QApplication.instance()
+        screens = app.screens()
+
+        # Calculate bounding rectangle that covers available area of all screens
+        # Using availableGeometry() to respect taskbar/dock areas
         x_min = y_min = float('inf')
         x_max = y_max = float('-inf')
 
-        for i in range(desktop.screenCount()):
-            screen_geom = desktop.screenGeometry(i)
+        for screen in screens:
+            # availableGeometry() excludes taskbars, docks, etc.
+            screen_geom = screen.availableGeometry()
             x_min = min(x_min, screen_geom.x())
             y_min = min(y_min, screen_geom.y())
             x_max = max(x_max, screen_geom.x() + screen_geom.width())
             y_max = max(y_max, screen_geom.y() + screen_geom.height())
 
-        # Set geometry to cover all screens
+        # Set geometry to cover available area of all screens
         self.setGeometry(int(x_min), int(y_min), int(x_max - x_min), int(y_max - y_min))
-        print(f"[OverlayWindow] Covering {desktop.screenCount()} screens: "
+        print(f"[OverlayWindow] Covering {len(screens)} screens (available area): "
               f"{int(x_min)},{int(y_min)} {int(x_max - x_min)}x{int(y_max - y_min)}")
 
     def _setup_cursor_timer(self):
