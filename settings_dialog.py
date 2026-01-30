@@ -7,30 +7,35 @@ from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QColor, QFont
 
 
-# Modern color scheme
+# Sophisticated OLED-optimized dark theme
+# True blacks for OLED efficiency, soft whites for reduced eye strain
 COLORS = {
-    "background": "#1e1e2e",
-    "surface": "#2a2a3e",
-    "surface_light": "#363650",
-    "primary": "#7c3aed",
-    "primary_hover": "#8b5cf6",
-    "text": "#e4e4e7",
-    "text_muted": "#a1a1aa",
-    "border": "#3f3f5a",
-    "success": "#22c55e",
-    "error": "#ef4444",
+    "background": "#000000",        # True black for OLED
+    "surface": "#0d0d0d",           # Near-black surface
+    "surface_elevated": "#161616",  # Slightly elevated surface
+    "surface_hover": "#1f1f1f",     # Hover state
+    "text": "#d4d4d4",              # Soft white - not pure white
+    "text_secondary": "#858585",    # Muted secondary text
+    "text_dim": "#525252",          # Dimmed text for tertiary info
+    "accent": "#4a9eff",            # Soft blue accent - easy on eyes
+    "accent_hover": "#6bb3ff",      # Lighter accent for hover
+    "accent_muted": "#1a3a5c",      # Very muted accent for backgrounds
+    "border": "#1f1f1f",            # Subtle border
+    "border_focus": "#2d4a6a",      # Focus border - muted accent
+    "success": "#3d8c40",           # Muted green
+    "error": "#c45c5c",             # Muted red
 }
 
-# Preset spotlight colors - bright and easy to distinguish
+# Preset spotlight colors - bright but with slight softening
 PRESET_COLORS = [
-    ("#FFFF00", "Yellow"),
-    ("#00FF00", "Green"),
-    ("#00FFFF", "Cyan"),
-    ("#FF00FF", "Magenta"),
-    ("#FF6B00", "Orange"),
-    ("#FF0080", "Pink"),
-    ("#00FF80", "Mint"),
-    ("#8080FF", "Periwinkle"),
+    ("#FFEE58", "Yellow"),      # Soft yellow
+    ("#66BB6A", "Green"),       # Soft green
+    ("#4DD0E1", "Cyan"),        # Soft cyan
+    ("#BA68C8", "Purple"),      # Soft purple
+    ("#FF8A65", "Orange"),      # Soft orange
+    ("#F06292", "Pink"),        # Soft pink
+    ("#81C784", "Mint"),        # Soft mint
+    ("#7986CB", "Indigo"),      # Soft indigo
 ]
 
 
@@ -41,24 +46,29 @@ class ShortcutRecorder(QLineEdit):
         """Initialize shortcut recorder."""
         super().__init__(parent)
         self.setReadOnly(True)
-        self.setPlaceholderText("Click and press shortcut...")
+        self.setPlaceholderText("Click to record...")
         self.recording = False
         self.keys = []
         self._apply_style()
 
     def _apply_style(self):
-        """Apply modern styling."""
+        """Apply OLED-optimized styling."""
         self.setStyleSheet(f"""
             QLineEdit {{
                 background-color: {COLORS['surface']};
                 border: 1px solid {COLORS['border']};
-                border-radius: 6px;
+                border-radius: 4px;
                 padding: 8px 12px;
                 color: {COLORS['text']};
                 font-size: 13px;
+                selection-background-color: {COLORS['accent_muted']};
+            }}
+            QLineEdit:hover {{
+                background-color: {COLORS['surface_elevated']};
+                border-color: {COLORS['border_focus']};
             }}
             QLineEdit:focus {{
-                border: 2px solid {COLORS['primary']};
+                border-color: {COLORS['accent']};
             }}
         """)
 
@@ -71,11 +81,11 @@ class ShortcutRecorder(QLineEdit):
             self.setText("")
             self.setStyleSheet(f"""
                 QLineEdit {{
-                    background-color: {COLORS['surface_light']};
-                    border: 2px solid {COLORS['primary']};
-                    border-radius: 6px;
+                    background-color: {COLORS['surface_elevated']};
+                    border: 1px solid {COLORS['accent']};
+                    border-radius: 4px;
                     padding: 8px 12px;
-                    color: {COLORS['text']};
+                    color: {COLORS['accent']};
                     font-size: 13px;
                 }}
             """)
@@ -149,23 +159,28 @@ class ColorPresetButton(QPushButton):
         super().__init__(parent)
         self.color_hex = color_hex
         self.color_name = color_name
-        self.setFixedSize(32, 32)
+        self.setFixedSize(28, 28)
         self.setToolTip(color_name)
         self.setCursor(Qt.PointingHandCursor)
         self._update_style(selected=False)
         self.clicked.connect(self._on_click)
 
     def _update_style(self, selected: bool = False):
-        """Update button style."""
-        border = f"3px solid {COLORS['primary']}" if selected else f"2px solid {COLORS['border']}"
+        """Update button style with subtle depth."""
+        if selected:
+            border = f"2px solid {COLORS['accent']}"
+            shadow = f"0 0 8px {self.color_hex}"
+        else:
+            border = f"1px solid {COLORS['border']}"
+            shadow = "none"
         self.setStyleSheet(f"""
             QPushButton {{
                 background-color: {self.color_hex};
                 border: {border};
-                border-radius: 6px;
+                border-radius: 4px;
             }}
             QPushButton:hover {{
-                border: 2px solid {COLORS['text']};
+                border: 1px solid {COLORS['text_secondary']};
             }}
         """)
 
@@ -194,29 +209,29 @@ class SettingsDialog(QDialog):
 
     def _setup_ui(self):
         """Set up the user interface."""
-        self.setWindowTitle("Glowpoint Settings")
-        self.setMinimumWidth(520)
-        self.setMinimumHeight(600)
+        self.setWindowTitle("Settings")
+        self.setMinimumWidth(480)
+        self.setMinimumHeight(580)
 
-        # Apply modern window styling
+        # Apply OLED-optimized styling
         self.setStyleSheet(f"""
             QDialog {{
                 background-color: {COLORS['background']};
             }}
             QGroupBox {{
-                font-size: 14px;
-                font-weight: bold;
-                color: {COLORS['text']};
+                font-size: 13px;
+                font-weight: 500;
+                color: {COLORS['text_secondary']};
                 border: 1px solid {COLORS['border']};
-                border-radius: 8px;
-                margin-top: 12px;
-                padding-top: 8px;
+                border-radius: 6px;
+                margin-top: 16px;
+                padding: 12px 12px 12px 12px;
             }}
             QGroupBox::title {{
                 subcontrol-origin: margin;
                 left: 12px;
-                padding: 0 8px;
-                color: {COLORS['primary']};
+                padding: 0 6px;
+                color: {COLORS['text_secondary']};
             }}
             QLabel {{
                 color: {COLORS['text']};
@@ -224,35 +239,38 @@ class SettingsDialog(QDialog):
             }}
             QSlider::groove:horizontal {{
                 border: none;
-                height: 6px;
-                background: {COLORS['surface']};
-                border-radius: 3px;
+                height: 4px;
+                background: {COLORS['surface_elevated']};
+                border-radius: 2px;
             }}
             QSlider::handle:horizontal {{
-                background: {COLORS['primary']};
+                background: {COLORS['text_secondary']};
                 border: none;
-                width: 16px;
-                height: 16px;
+                width: 14px;
+                height: 14px;
                 margin: -5px 0;
-                border-radius: 8px;
+                border-radius: 7px;
             }}
             QSlider::handle:horizontal:hover {{
-                background: {COLORS['primary_hover']};
+                background: {COLORS['text']};
             }}
             QSlider::sub-page:horizontal {{
-                background: {COLORS['primary']};
-                border-radius: 3px;
+                background: {COLORS['accent_muted']};
+                border-radius: 2px;
             }}
             QLineEdit {{
                 background-color: {COLORS['surface']};
                 border: 1px solid {COLORS['border']};
-                border-radius: 6px;
+                border-radius: 4px;
                 padding: 8px 12px;
                 color: {COLORS['text']};
                 font-size: 13px;
             }}
+            QLineEdit:hover {{
+                background-color: {COLORS['surface_elevated']};
+            }}
             QLineEdit:focus {{
-                border: 2px solid {COLORS['primary']};
+                border-color: {COLORS['accent']};
             }}
         """)
 
@@ -271,35 +289,40 @@ class SettingsDialog(QDialog):
                 border: none;
             }}
             QScrollBar:vertical {{
-                background: {COLORS['surface']};
-                width: 8px;
-                border-radius: 4px;
+                background: {COLORS['background']};
+                width: 6px;
+                border-radius: 3px;
+                margin: 4px 2px;
             }}
             QScrollBar::handle:vertical {{
-                background: {COLORS['border']};
-                border-radius: 4px;
+                background: {COLORS['surface_elevated']};
+                border-radius: 3px;
                 min-height: 30px;
             }}
             QScrollBar::handle:vertical:hover {{
-                background: {COLORS['primary']};
+                background: {COLORS['text_dim']};
             }}
             QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
                 height: 0;
             }}
+            QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {{
+                background: none;
+            }}
         """)
 
         content_widget = QWidget()
+        content_widget.setStyleSheet(f"background-color: {COLORS['background']};")
         content_layout = QVBoxLayout(content_widget)
-        content_layout.setContentsMargins(20, 20, 20, 20)
-        content_layout.setSpacing(16)
+        content_layout.setContentsMargins(20, 16, 20, 16)
+        content_layout.setSpacing(12)
 
         # Title
         title_label = QLabel("Settings")
         title_label.setStyleSheet(f"""
-            font-size: 24px;
-            font-weight: bold;
+            font-size: 20px;
+            font-weight: 600;
             color: {COLORS['text']};
-            padding-bottom: 8px;
+            padding-bottom: 4px;
         """)
         content_layout.addWidget(title_label)
 
@@ -331,81 +354,65 @@ class SettingsDialog(QDialog):
         """Create keyboard shortcuts section."""
         group = QGroupBox("Keyboard Shortcuts")
         layout = QFormLayout(group)
-        layout.setContentsMargins(16, 24, 16, 16)
-        layout.setSpacing(12)
+        layout.setContentsMargins(12, 20, 12, 12)
+        layout.setSpacing(10)
         layout.setLabelAlignment(Qt.AlignRight)
 
         shortcut_labels = {
-            "toggle_spotlight": "Toggle Spotlight",
+            "toggle_spotlight": "Spotlight",
             "draw_blue": "Draw Blue",
             "draw_red": "Draw Red",
             "draw_yellow": "Draw Yellow",
             "draw_green": "Draw Green",
-            "clear_screen": "Clear Screen",
-            "quit": "Quit Application"
+            "clear_screen": "Clear",
+            "quit": "Quit"
         }
 
         for action, label in shortcut_labels.items():
+            lbl = QLabel(label)
+            lbl.setStyleSheet(f"color: {COLORS['text_secondary']};")
             recorder = ShortcutRecorder()
             self.shortcut_inputs[action] = recorder
-            layout.addRow(label + ":", recorder)
+            layout.addRow(lbl, recorder)
 
         return group
 
     def _create_spotlight_section(self):
         """Create spotlight settings section."""
-        group = QGroupBox("Spotlight Settings")
+        group = QGroupBox("Spotlight")
         layout = QVBoxLayout(group)
-        layout.setContentsMargins(16, 24, 16, 16)
-        layout.setSpacing(16)
+        layout.setContentsMargins(12, 20, 12, 12)
+        layout.setSpacing(14)
 
         # Radius slider
-        radius_layout = self._create_slider_row(
-            "Spotlight Radius:",
-            5, 200, 25,
-            lambda: self.radius_slider,
-            lambda: self.radius_label,
-            "px"
-        )
+        radius_layout = self._create_slider_row("Radius", 5, 200)
         self.radius_slider = radius_layout.itemAt(1).widget()
         self.radius_label = radius_layout.itemAt(2).widget()
         self.radius_slider.valueChanged.connect(self._on_radius_changed)
         layout.addLayout(radius_layout)
 
         # Ring radius slider
-        ring_layout = self._create_slider_row(
-            "Ring Radius:",
-            5, 100, 10,
-            lambda: self.ring_radius_slider,
-            lambda: self.ring_radius_label,
-            "px"
-        )
+        ring_layout = self._create_slider_row("Ring", 5, 100)
         self.ring_radius_slider = ring_layout.itemAt(1).widget()
         self.ring_radius_label = ring_layout.itemAt(2).widget()
         self.ring_radius_slider.valueChanged.connect(self._on_ring_radius_changed)
         layout.addLayout(ring_layout)
 
         # Opacity slider
-        opacity_layout = self._create_slider_row(
-            "Glow Opacity:",
-            0, 100, 10,
-            lambda: self.opacity_slider,
-            lambda: self.opacity_label,
-            "%"
-        )
+        opacity_layout = self._create_slider_row("Opacity", 0, 100)
         self.opacity_slider = opacity_layout.itemAt(1).widget()
         self.opacity_label = opacity_layout.itemAt(2).widget()
         self.opacity_slider.valueChanged.connect(self._on_opacity_changed)
         layout.addLayout(opacity_layout)
 
         # Color section
-        color_label = QLabel("Spotlight Color:")
-        color_label.setStyleSheet(f"color: {COLORS['text']}; font-size: 13px;")
+        color_label = QLabel("Color")
+        color_label.setStyleSheet(f"color: {COLORS['text_secondary']}; font-size: 13px;")
         layout.addWidget(color_label)
 
         # Preset colors row
         preset_layout = QHBoxLayout()
-        preset_layout.setSpacing(8)
+        preset_layout.setSpacing(6)
         for color_hex, color_name in PRESET_COLORS:
             btn = ColorPresetButton(color_hex, color_name)
             btn.color_selected.connect(self._on_preset_color_selected)
@@ -416,30 +423,30 @@ class SettingsDialog(QDialog):
 
         # Custom color picker row
         color_picker_layout = QHBoxLayout()
-        color_picker_layout.setSpacing(12)
+        color_picker_layout.setSpacing(10)
 
         self.spotlight_color_preview = QLabel()
-        self.spotlight_color_preview.setFixedSize(40, 40)
+        self.spotlight_color_preview.setFixedSize(32, 32)
         self.spotlight_color_preview.setStyleSheet(f"""
-            border: 2px solid {COLORS['border']};
-            border-radius: 8px;
+            border: 1px solid {COLORS['border']};
+            border-radius: 4px;
         """)
         color_picker_layout.addWidget(self.spotlight_color_preview)
 
-        self.spotlight_color_button = QPushButton("Custom Color...")
+        self.spotlight_color_button = QPushButton("Custom...")
         self.spotlight_color_button.setCursor(Qt.PointingHandCursor)
         self.spotlight_color_button.setStyleSheet(f"""
             QPushButton {{
                 background-color: {COLORS['surface']};
                 border: 1px solid {COLORS['border']};
-                border-radius: 6px;
-                padding: 10px 20px;
-                color: {COLORS['text']};
+                border-radius: 4px;
+                padding: 8px 16px;
+                color: {COLORS['text_secondary']};
                 font-size: 13px;
             }}
             QPushButton:hover {{
-                background-color: {COLORS['surface_light']};
-                border: 1px solid {COLORS['primary']};
+                background-color: {COLORS['surface_elevated']};
+                color: {COLORS['text']};
             }}
         """)
         self.spotlight_color_button.clicked.connect(self._choose_spotlight_color)
@@ -452,19 +459,13 @@ class SettingsDialog(QDialog):
 
     def _create_drawing_section(self):
         """Create drawing settings section."""
-        group = QGroupBox("Drawing Settings")
+        group = QGroupBox("Drawing")
         layout = QVBoxLayout(group)
-        layout.setContentsMargins(16, 24, 16, 16)
-        layout.setSpacing(16)
+        layout.setContentsMargins(12, 20, 12, 12)
+        layout.setSpacing(14)
 
         # Line width slider
-        line_layout = self._create_slider_row(
-            "Line Width:",
-            1, 20, 2,
-            lambda: self.line_width_slider,
-            lambda: self.line_width_label,
-            "px"
-        )
+        line_layout = self._create_slider_row("Line Width", 1, 20)
         self.line_width_slider = line_layout.itemAt(1).widget()
         self.line_width_label = line_layout.itemAt(2).widget()
         self.line_width_slider.valueChanged.connect(
@@ -476,40 +477,42 @@ class SettingsDialog(QDialog):
 
     def _create_tool_shortcuts_section(self):
         """Create tool shortcuts section."""
-        group = QGroupBox("Drawing Tool Shortcuts")
+        group = QGroupBox("Tool Shortcuts")
         layout = QFormLayout(group)
-        layout.setContentsMargins(16, 24, 16, 16)
-        layout.setSpacing(12)
+        layout.setContentsMargins(12, 20, 12, 12)
+        layout.setSpacing(10)
         layout.setLabelAlignment(Qt.AlignRight)
 
         tool_labels = {
-            "freehand": "Freehand Tool",
-            "line": "Line Tool",
-            "rectangle": "Rectangle Tool",
-            "arrow": "Arrow Tool",
-            "circle": "Circle Tool"
+            "freehand": "Freehand",
+            "line": "Line",
+            "rectangle": "Rectangle",
+            "arrow": "Arrow",
+            "circle": "Circle"
         }
 
         self.tool_shortcut_inputs = {}
         for tool, label in tool_labels.items():
+            lbl = QLabel(label)
+            lbl.setStyleSheet(f"color: {COLORS['text_secondary']};")
             input_field = QLineEdit()
             input_field.setMaxLength(1)
-            input_field.setFixedWidth(50)
+            input_field.setFixedWidth(44)
             input_field.setAlignment(Qt.AlignCenter)
-            input_field.setPlaceholderText("Key")
+            input_field.setPlaceholderText("—")
             self.tool_shortcut_inputs[tool] = input_field
-            layout.addRow(label + ":", input_field)
+            layout.addRow(lbl, input_field)
 
         return group
 
-    def _create_slider_row(self, label_text, min_val, max_val, tick_interval,
-                           slider_ref, label_ref, suffix):
+    def _create_slider_row(self, label_text, min_val, max_val):
         """Create a row with label, slider, and value display."""
         layout = QHBoxLayout()
         layout.setSpacing(12)
 
         label = QLabel(label_text)
-        label.setFixedWidth(120)
+        label.setFixedWidth(70)
+        label.setStyleSheet(f"color: {COLORS['text_secondary']};")
         layout.addWidget(label)
 
         slider = QSlider(Qt.Horizontal)
@@ -519,9 +522,9 @@ class SettingsDialog(QDialog):
         layout.addWidget(slider, 1)
 
         value_label = QLabel()
-        value_label.setFixedWidth(50)
+        value_label.setFixedWidth(44)
         value_label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
-        value_label.setStyleSheet(f"color: {COLORS['text_muted']};")
+        value_label.setStyleSheet(f"color: {COLORS['text_dim']};")
         layout.addWidget(value_label)
 
         return layout
@@ -536,7 +539,7 @@ class SettingsDialog(QDialog):
             }}
         """)
         layout = QHBoxLayout(bar)
-        layout.setContentsMargins(20, 16, 20, 16)
+        layout.setContentsMargins(16, 12, 16, 12)
 
         layout.addStretch()
 
@@ -546,13 +549,14 @@ class SettingsDialog(QDialog):
             QPushButton {{
                 background-color: transparent;
                 border: 1px solid {COLORS['border']};
-                border-radius: 6px;
-                padding: 10px 24px;
-                color: {COLORS['text']};
-                font-size: 14px;
+                border-radius: 4px;
+                padding: 8px 20px;
+                color: {COLORS['text_secondary']};
+                font-size: 13px;
             }}
             QPushButton:hover {{
-                background-color: {COLORS['surface_light']};
+                background-color: {COLORS['surface_elevated']};
+                color: {COLORS['text']};
             }}
         """)
         cancel_button.clicked.connect(self.reject)
@@ -562,16 +566,17 @@ class SettingsDialog(QDialog):
         save_button.setCursor(Qt.PointingHandCursor)
         save_button.setStyleSheet(f"""
             QPushButton {{
-                background-color: {COLORS['primary']};
-                border: none;
-                border-radius: 6px;
-                padding: 10px 32px;
-                color: white;
-                font-size: 14px;
-                font-weight: bold;
+                background-color: {COLORS['accent_muted']};
+                border: 1px solid {COLORS['border_focus']};
+                border-radius: 4px;
+                padding: 8px 24px;
+                color: {COLORS['accent']};
+                font-size: 13px;
+                font-weight: 500;
             }}
             QPushButton:hover {{
-                background-color: {COLORS['primary_hover']};
+                background-color: {COLORS['border_focus']};
+                color: {COLORS['accent_hover']};
             }}
         """)
         save_button.clicked.connect(self._save_settings)
@@ -636,7 +641,7 @@ class SettingsDialog(QDialog):
             self.line_width_slider.blockSignals(False)
 
     def _save_settings(self):
-        """Save settings to configuration (silently, no dialog)."""
+        """Save settings to configuration silently."""
         # Save shortcuts
         for action, recorder in self.shortcut_inputs.items():
             shortcut = recorder.text()
@@ -659,7 +664,7 @@ class SettingsDialog(QDialog):
                 self.config.set(shortcut, "drawing", "tool_shortcuts", tool)
 
         self.settings_changed.emit()
-        self.accept()  # Just close, no confirmation dialog
+        self.accept()
 
     def _on_preset_color_selected(self, color_hex: str):
         """Handle preset color selection."""
@@ -687,8 +692,8 @@ class SettingsDialog(QDialog):
         """Update the color preview box."""
         self.spotlight_color_preview.setStyleSheet(f"""
             background-color: {self.spotlight_color};
-            border: 2px solid {COLORS['border']};
-            border-radius: 8px;
+            border: 1px solid {COLORS['border']};
+            border-radius: 4px;
         """)
 
     def _on_radius_changed(self, value):

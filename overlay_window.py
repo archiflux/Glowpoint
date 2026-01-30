@@ -17,10 +17,22 @@ class DrawingMode(Enum):
 
 
 class DrawingToolbar(QWidget):
-    """Floating toolbar for drawing tool selection."""
+    """Floating toolbar for drawing tool selection with OLED-optimized dark theme."""
 
     # Signal emitted when a tool is selected
     tool_selected = pyqtSignal(DrawingMode)
+
+    # OLED-optimized colors
+    COLORS = {
+        "background": "rgba(0, 0, 0, 230)",
+        "surface": "rgba(13, 13, 13, 255)",
+        "surface_hover": "rgba(30, 30, 30, 255)",
+        "border": "rgba(31, 31, 31, 255)",
+        "text": "rgba(212, 212, 212, 255)",
+        "text_secondary": "rgba(133, 133, 133, 255)",
+        "accent": "rgba(74, 158, 255, 255)",
+        "accent_muted": "rgba(26, 58, 92, 255)",
+    }
 
     def __init__(self, config_manager, parent=None):
         """Initialize the toolbar.
@@ -46,8 +58,8 @@ class DrawingToolbar(QWidget):
         self.setAttribute(Qt.WA_TranslucentBackground)
 
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(8, 8, 8, 8)
-        layout.setSpacing(4)
+        layout.setContentsMargins(6, 6, 6, 6)
+        layout.setSpacing(3)
 
         # Tool definitions: (mode, symbol, name, config_key)
         tools = [
@@ -62,25 +74,26 @@ class DrawingToolbar(QWidget):
             shortcut = self.config.get("drawing", "tool_shortcuts", config_key) or config_key[0]
             btn = QToolButton()
             btn.setText(symbol)
-            btn.setFont(QFont("Segoe UI Symbol", 14))
-            btn.setFixedSize(36, 36)
-            btn.setToolTip(f"{name} (Press {shortcut})")
+            btn.setFont(QFont("Segoe UI Symbol", 13))
+            btn.setFixedSize(32, 32)
+            btn.setToolTip(f"{name} ({shortcut})")
             btn.setCheckable(True)
-            btn.setStyleSheet("""
-                QToolButton {
-                    background-color: rgba(50, 50, 50, 200);
-                    border: 1px solid rgba(100, 100, 100, 150);
+            btn.setStyleSheet(f"""
+                QToolButton {{
+                    background-color: {self.COLORS['surface']};
+                    border: 1px solid {self.COLORS['border']};
                     border-radius: 4px;
-                    color: white;
-                }
-                QToolButton:hover {
-                    background-color: rgba(80, 80, 80, 220);
-                    border: 1px solid rgba(150, 150, 150, 200);
-                }
-                QToolButton:checked {
-                    background-color: rgba(70, 130, 180, 220);
-                    border: 2px solid rgba(100, 180, 255, 255);
-                }
+                    color: {self.COLORS['text_secondary']};
+                }}
+                QToolButton:hover {{
+                    background-color: {self.COLORS['surface_hover']};
+                    color: {self.COLORS['text']};
+                }}
+                QToolButton:checked {{
+                    background-color: {self.COLORS['accent_muted']};
+                    border: 1px solid {self.COLORS['accent']};
+                    color: {self.COLORS['accent']};
+                }}
             """)
             btn.clicked.connect(lambda checked, m=mode: self._on_tool_clicked(m))
             layout.addWidget(btn)
@@ -115,8 +128,8 @@ class DrawingToolbar(QWidget):
         screen = QApplication.primaryScreen()
         if screen:
             screen_geom = screen.availableGeometry()
-            x = screen_geom.right() - self.width() - 20
-            y = screen_geom.bottom() - self.height() - 20
+            x = screen_geom.right() - self.width() - 16
+            y = screen_geom.bottom() - self.height() - 16
             self.move(x, y)
 
     def paintEvent(self, event):
@@ -128,10 +141,10 @@ class DrawingToolbar(QWidget):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
 
-        # Draw rounded rectangle background
-        painter.setBrush(QColor(30, 30, 30, 200))
-        painter.setPen(QPen(QColor(80, 80, 80, 150), 1))
-        painter.drawRoundedRect(self.rect().adjusted(1, 1, -1, -1), 8, 8)
+        # Draw rounded rectangle background - true black for OLED
+        painter.setBrush(QColor(0, 0, 0, 245))
+        painter.setPen(QPen(QColor(31, 31, 31, 255), 1))
+        painter.drawRoundedRect(self.rect().adjusted(1, 1, -1, -1), 6, 6)
 
 
 class OverlayWindow(QWidget):

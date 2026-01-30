@@ -49,22 +49,6 @@ class GlowpointApp:
         self.hotkey_manager.clear_screen.connect(self._clear_screen)
         self.hotkey_manager.quit_app.connect(self._quit_application)
 
-        # Connect overlay signals
-        self.overlay.mode_changed.connect(self._on_mode_changed)
-
-    def _on_mode_changed(self, mode_name: str):
-        """Handle drawing mode change notification.
-
-        Args:
-            mode_name: Name of the new drawing mode
-        """
-        self.tray_icon.showMessage(
-            "Drawing Mode",
-            f"Tool: {mode_name}",
-            QSystemTrayIcon.Information,
-            1000
-        )
-
     def _create_tray_icon(self):
         """Create system tray icon and menu."""
         # Create a simple icon
@@ -117,17 +101,6 @@ Clear: {s('clear_screen')} | Quit: {s('quit')}"""
         self.tray_icon.setContextMenu(menu)
         self.tray_icon.show()
 
-        # Show notification on startup
-        s = self.config.get_shortcut_display  # shorthand
-        self.tray_icon.showMessage(
-            "Glowpoint Started",
-            f"Hover over icon to see all shortcuts\n"
-            f"Spotlight: {s('toggle_spotlight')}\n"
-            f"Draw: {s('draw_blue')}, {s('draw_red')}, {s('draw_yellow')}, {s('draw_green')}",
-            QSystemTrayIcon.Information,
-            3000
-        )
-
     def _create_icon(self):
         """Create application icon.
 
@@ -173,37 +146,17 @@ Clear: {s('clear_screen')} | Quit: {s('quit')}"""
             print(f"Stopping drawing mode")
             self.overlay.stop_drawing()
             self.drawing_color = None
-            self.tray_icon.showMessage(
-                "Drawing Mode OFF",
-                f"Drawing mode stopped.",
-                QSystemTrayIcon.Information,
-                1000
-            )
         else:
             # Start drawing with new color
             print(f"Starting drawing mode with color: {color}")
             self.overlay.start_drawing(color)
             self.drawing_color = color
-            self.tray_icon.showMessage(
-                "Drawing Mode ON",
-                f"Drawing in {color.upper()}\n"
-                f"Tools: 1=Freehand 2=Line 3=Rectangle 4=Arrow 5=Circle\n"
-                f"Press color hotkey again or ESC to stop.",
-                QSystemTrayIcon.Information,
-                2500
-            )
 
         print(f"New drawing_active: {self.overlay.drawing_active}")
 
     def _clear_screen(self):
         """Clear all drawings."""
         self.overlay.clear_drawings()
-        self.tray_icon.showMessage(
-            "Drawings Cleared",
-            "All drawings have been cleared from the screen.",
-            QSystemTrayIcon.Information,
-            1000
-        )
 
     def _show_settings(self):
         """Show settings dialog."""
@@ -248,7 +201,7 @@ Clear: {s('clear_screen')} | Quit: {s('quit')}"""
 
 
 class AboutDialog(QDialog):
-    """Modern styled About dialog."""
+    """OLED-optimized About dialog with sophisticated dark theme."""
 
     def __init__(self, config, parent=None):
         super().__init__(parent)
@@ -258,7 +211,7 @@ class AboutDialog(QDialog):
     def _setup_ui(self):
         """Set up the about dialog UI."""
         self.setWindowTitle("About Glowpoint")
-        self.setFixedSize(480, 580)
+        self.setFixedSize(420, 520)
 
         self.setStyleSheet(f"""
             QDialog {{
@@ -270,35 +223,35 @@ class AboutDialog(QDialog):
         """)
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(32, 32, 32, 24)
-        layout.setSpacing(16)
+        layout.setContentsMargins(28, 28, 28, 20)
+        layout.setSpacing(12)
 
         # App icon and title
         header_layout = QHBoxLayout()
-        header_layout.setSpacing(16)
+        header_layout.setSpacing(14)
 
-        # Create icon
+        # Create icon with OLED-friendly colors
         icon_label = QLabel()
-        pixmap = QPixmap(48, 48)
+        pixmap = QPixmap(44, 44)
         pixmap.fill(Qt.transparent)
         painter = QPainter(pixmap)
         painter.setRenderHint(QPainter.Antialiasing)
-        painter.setBrush(QColor(255, 200, 0, 200))
+        painter.setBrush(QColor(COLORS['accent']))
         painter.setPen(Qt.NoPen)
-        painter.drawEllipse(4, 4, 40, 40)
-        painter.setBrush(QColor(255, 255, 255))
-        painter.drawEllipse(16, 16, 16, 16)
+        painter.drawEllipse(2, 2, 40, 40)
+        painter.setBrush(QColor(COLORS['text']))
+        painter.drawEllipse(14, 14, 16, 16)
         painter.end()
         icon_label.setPixmap(pixmap)
         header_layout.addWidget(icon_label)
 
         # Title and version
         title_layout = QVBoxLayout()
-        title_layout.setSpacing(4)
+        title_layout.setSpacing(2)
         title = QLabel("Glowpoint")
-        title.setStyleSheet(f"font-size: 28px; font-weight: bold; color: {COLORS['text']};")
+        title.setStyleSheet(f"font-size: 22px; font-weight: 600; color: {COLORS['text']};")
         version = QLabel("Version 1.0.0")
-        version.setStyleSheet(f"font-size: 14px; color: {COLORS['text_muted']};")
+        version.setStyleSheet(f"font-size: 12px; color: {COLORS['text_secondary']};")
         title_layout.addWidget(title)
         title_layout.addWidget(version)
         header_layout.addLayout(title_layout)
@@ -306,9 +259,9 @@ class AboutDialog(QDialog):
         layout.addLayout(header_layout)
 
         # Description
-        desc = QLabel("A presentation tool that highlights your cursor and lets you draw annotations on screen.")
+        desc = QLabel("A presentation tool for cursor highlighting and screen annotations.")
         desc.setWordWrap(True)
-        desc.setStyleSheet(f"font-size: 14px; color: {COLORS['text']}; padding: 8px 0;")
+        desc.setStyleSheet(f"font-size: 13px; color: {COLORS['text_secondary']}; padding: 4px 0;")
         layout.addWidget(desc)
 
         # Separator
@@ -319,48 +272,81 @@ class AboutDialog(QDialog):
         layout.addWidget(sep1)
 
         # Current shortcuts section
-        shortcuts_title = QLabel("Current Shortcuts")
-        shortcuts_title.setStyleSheet(f"font-size: 16px; font-weight: bold; color: {COLORS['primary']}; padding-top: 8px;")
+        shortcuts_title = QLabel("Shortcuts")
+        shortcuts_title.setStyleSheet(f"font-size: 13px; font-weight: 500; color: {COLORS['text_secondary']}; padding-top: 4px;")
         layout.addWidget(shortcuts_title)
 
         s = self.config.get_shortcut_display
-        shortcuts_text = f"""
-<table style="color: {COLORS['text']}; font-size: 13px;">
-<tr><td style="padding: 4px 16px 4px 0;"><b>Spotlight:</b></td><td>{s('toggle_spotlight')}</td></tr>
-<tr><td style="padding: 4px 16px 4px 0;"><b>Draw Blue:</b></td><td>{s('draw_blue')}</td></tr>
-<tr><td style="padding: 4px 16px 4px 0;"><b>Draw Red:</b></td><td>{s('draw_red')}</td></tr>
-<tr><td style="padding: 4px 16px 4px 0;"><b>Draw Yellow:</b></td><td>{s('draw_yellow')}</td></tr>
-<tr><td style="padding: 4px 16px 4px 0;"><b>Draw Green:</b></td><td>{s('draw_green')}</td></tr>
-<tr><td style="padding: 4px 16px 4px 0;"><b>Clear:</b></td><td>{s('clear_screen')}</td></tr>
-<tr><td style="padding: 4px 16px 4px 0;"><b>Quit:</b></td><td>{s('quit')}</td></tr>
-</table>
-"""
-        shortcuts_label = QLabel(shortcuts_text)
-        shortcuts_label.setStyleSheet(f"color: {COLORS['text']};")
-        layout.addWidget(shortcuts_label)
+        shortcuts_data = [
+            ("Spotlight", s('toggle_spotlight')),
+            ("Draw Blue", s('draw_blue')),
+            ("Draw Red", s('draw_red')),
+            ("Draw Yellow", s('draw_yellow')),
+            ("Draw Green", s('draw_green')),
+            ("Clear", s('clear_screen')),
+            ("Quit", s('quit')),
+        ]
+
+        shortcuts_widget = QWidget()
+        shortcuts_widget.setStyleSheet(f"background-color: {COLORS['surface']}; border-radius: 6px;")
+        shortcuts_layout = QVBoxLayout(shortcuts_widget)
+        shortcuts_layout.setContentsMargins(12, 8, 12, 8)
+        shortcuts_layout.setSpacing(4)
+
+        for label, shortcut in shortcuts_data:
+            row = QHBoxLayout()
+            lbl = QLabel(label)
+            lbl.setStyleSheet(f"color: {COLORS['text_secondary']}; font-size: 12px;")
+            key = QLabel(shortcut)
+            key.setStyleSheet(f"color: {COLORS['text']}; font-size: 12px;")
+            key.setAlignment(Qt.AlignRight)
+            row.addWidget(lbl)
+            row.addWidget(key)
+            shortcuts_layout.addLayout(row)
+
+        layout.addWidget(shortcuts_widget)
 
         # Tool shortcuts
         tool_shortcuts = self.config.get("drawing", "tool_shortcuts") or {}
         tools_title = QLabel("Drawing Tools")
-        tools_title.setStyleSheet(f"font-size: 16px; font-weight: bold; color: {COLORS['primary']}; padding-top: 8px;")
+        tools_title.setStyleSheet(f"font-size: 13px; font-weight: 500; color: {COLORS['text_secondary']}; padding-top: 4px;")
         layout.addWidget(tools_title)
 
-        tools_text = f"""
-<table style="color: {COLORS['text']}; font-size: 13px;">
-<tr><td style="padding: 4px 16px 4px 0;"><b>{tool_shortcuts.get('freehand', '1')}</b> Freehand</td>
-    <td style="padding: 4px 16px 4px 0;"><b>{tool_shortcuts.get('line', '2')}</b> Line</td>
-    <td><b>{tool_shortcuts.get('rectangle', '3')}</b> Rectangle</td></tr>
-<tr><td style="padding: 4px 16px 4px 0;"><b>{tool_shortcuts.get('arrow', '4')}</b> Arrow</td>
-    <td style="padding: 4px 16px 4px 0;"><b>{tool_shortcuts.get('circle', '5')}</b> Circle</td>
-    <td></td></tr>
-</table>
-<p style="margin-top: 8px; color: {COLORS['text_muted']}; font-size: 12px;">
-<b>ESC</b> exit drawing | <b>Mouse wheel</b> adjust thickness | <b>Ctrl+Z</b> undo | <b>Ctrl+Shift+Z</b> redo
-</p>
-"""
-        tools_label = QLabel(tools_text)
-        tools_label.setStyleSheet(f"color: {COLORS['text']};")
-        layout.addWidget(tools_label)
+        tools_widget = QWidget()
+        tools_widget.setStyleSheet(f"background-color: {COLORS['surface']}; border-radius: 6px;")
+        tools_layout = QVBoxLayout(tools_widget)
+        tools_layout.setContentsMargins(12, 8, 12, 8)
+        tools_layout.setSpacing(4)
+
+        tools_data = [
+            (tool_shortcuts.get('freehand', '1'), "Freehand"),
+            (tool_shortcuts.get('line', '2'), "Line"),
+            (tool_shortcuts.get('rectangle', '3'), "Rectangle"),
+            (tool_shortcuts.get('arrow', '4'), "Arrow"),
+            (tool_shortcuts.get('circle', '5'), "Circle"),
+        ]
+
+        tools_row1 = QHBoxLayout()
+        for key, name in tools_data[:3]:
+            item = QLabel(f"{key} {name}")
+            item.setStyleSheet(f"color: {COLORS['text_secondary']}; font-size: 12px;")
+            tools_row1.addWidget(item)
+        tools_layout.addLayout(tools_row1)
+
+        tools_row2 = QHBoxLayout()
+        for key, name in tools_data[3:]:
+            item = QLabel(f"{key} {name}")
+            item.setStyleSheet(f"color: {COLORS['text_secondary']}; font-size: 12px;")
+            tools_row2.addWidget(item)
+        tools_row2.addStretch()
+        tools_layout.addLayout(tools_row2)
+
+        # Additional tips
+        tips = QLabel("ESC exit · Scroll thickness · Ctrl+Z undo")
+        tips.setStyleSheet(f"color: {COLORS['text_dim']}; font-size: 11px; padding-top: 4px;")
+        tools_layout.addWidget(tips)
+
+        layout.addWidget(tools_widget)
 
         layout.addStretch()
 
@@ -369,16 +355,17 @@ class AboutDialog(QDialog):
         close_btn.setCursor(Qt.PointingHandCursor)
         close_btn.setStyleSheet(f"""
             QPushButton {{
-                background-color: {COLORS['primary']};
-                border: none;
-                border-radius: 6px;
-                padding: 10px 32px;
-                color: white;
-                font-size: 14px;
-                font-weight: bold;
+                background-color: {COLORS['accent_muted']};
+                border: 1px solid {COLORS['border_focus']};
+                border-radius: 4px;
+                padding: 8px 24px;
+                color: {COLORS['accent']};
+                font-size: 13px;
+                font-weight: 500;
             }}
             QPushButton:hover {{
-                background-color: {COLORS['primary_hover']};
+                background-color: {COLORS['border_focus']};
+                color: {COLORS['accent_hover']};
             }}
         """)
         close_btn.clicked.connect(self.accept)
