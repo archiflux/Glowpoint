@@ -112,6 +112,59 @@ class ConfigManager:
         """
         return self.config["shortcuts"].get(action, "")
 
+    def format_shortcut(self, shortcut: str) -> str:
+        """Format a shortcut string for human-readable display.
+
+        Converts internal format like '<ctrl>+<shift>+s' to 'Ctrl+Shift+S'.
+
+        Args:
+            shortcut: Internal shortcut string
+
+        Returns:
+            Human-readable shortcut string
+        """
+        if not shortcut:
+            return ""
+
+        # Replace modifier tags with readable names
+        result = shortcut
+        replacements = [
+            ("<ctrl>", "Ctrl"),
+            ("<shift>", "Shift"),
+            ("<alt>", "Alt"),
+            ("<cmd>", "Cmd"),
+            ("<meta>", "Meta"),
+            ("<esc>", "Esc"),
+            ("<tab>", "Tab"),
+            ("<space>", "Space"),
+            ("<enter>", "Enter"),
+        ]
+
+        for old, new in replacements:
+            result = result.replace(old, new)
+
+        # Capitalize standalone letters/keys
+        parts = result.split("+")
+        formatted_parts = []
+        for part in parts:
+            if len(part) == 1:
+                formatted_parts.append(part.upper())
+            else:
+                formatted_parts.append(part)
+
+        return "+".join(formatted_parts)
+
+    def get_shortcut_display(self, action: str) -> str:
+        """Get a human-readable shortcut for a specific action.
+
+        Args:
+            action: Action name
+
+        Returns:
+            Human-readable shortcut string
+        """
+        return self.format_shortcut(self.get_shortcut(action))
+
     def set_shortcut(self, action: str, shortcut: str) -> None:
         """Set shortcut for a specific action.
 
